@@ -1,0 +1,61 @@
+{
+  "comment": "仿真数据:今日(2026-07-17)场馆事件,时间 HHmm。venueId 为房间 id 或楼宇 id。",
+  "events": [
+    {
+      "id": "ev_01",
+      "venueId": "w1018218617",
+      "title": "校级手球邀请赛(亚运手球馆)",
+      "start": "0900",
+      "end": "1130",
+      "crowd": 1200
+    },
+    {
+      "id": "ev_02",
+      "venueId": "w1018218617",
+      "title": "教职工羽毛球公开赛",
+      "start": "1400",
+      "end": "1700",
+      "crowd": 300
+    },
+    {
+      "id": "ev_03",
+      "venueId": "w563515430",
+      "title": "篮球联赛小组赛(风雨操场)",
+      "start": "1800",
+      "end": "2030",
+      "crowd": 500
+    },
+    {
+      "id": "ev_04",
+      "venueId": "r_sa_hall",
+      "title": "大学生艺术团新年音乐会",
+      "start": "1830",
+      "end": "2035",
+      "crowd": 832
+    },
+    {
+      "id": "ev_05",
+      "venueId": "r_micc_201",
+      "title": "钱塘国际学术讲座",
+      "start": "1400",
+      "end": "1600",
+      "crowd": 24
+    },
+    {
+      "id": "ev_06",
+      "venueId": "r_micc_301",
+      "title": "留学生文化交流沙龙",
+      "start": "1000",
+      "end": "1130",
+      "crowd": 14
+    },
+    {
+      "id": "ev_07",
+      "venueId": "r_micc_103",
+      "title": "校企合作洽谈会",
+      "start": "1500",
+      "end": "1700",
+      "crowd": 16
+    }
+  ]
+}

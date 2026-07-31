@@ -1,0 +1,35 @@
+{
+  "comment": "仿真数据:食堂基础容量(座位数)。placeId 与 simStore.canteenCrowd 对齐。",
+  "canteens": [
+    {
+      "placeId": "xingyun",
+      "buildingId": "w563779372",
+      "name": "行云苑食堂",
+      "seats": 2200,
+      "floors": 3,
+      "note": "二楼梅花餐厅"
+    },
+    {
+      "placeId": "liushui",
+      "buildingId": "w545969362",
+      "name": "流水苑食堂",
+      "seats": 1800,
+      "floors": 3,
+      "note": "含麦当劳"
+    },
+    {
+      "placeId": "qingfeng",
+      "buildingId": "w563544653",
+      "name": "清风苑食堂",
+      "seats": 900,
+      "floors": 2
+    },
+    {
+      "placeId": "mingyue",
+      "buildingId": "w563544712",
+      "name": "明月苑食堂",
+      "seats": 700,
+      "floors": 2
+    }
+  ]
+}

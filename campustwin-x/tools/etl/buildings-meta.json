@@ -1,0 +1,48 @@
+{
+  "comment": "浙商大下沙校区楼宇白名单。key=OSM name 精确匹配;patterns=正则兜底。名称以学校官方资料为权威。levels/heightM 来源:基建处档案>类型默认。display 为界面显示名。",
+  "match": {
+    "综合大楼": { "display": "综合大楼", "feature": "admin", "lod": 0, "levels": 12, "heightM": 48, "alias": ["综合楼"], "zone": "center", "hero": true },
+    "浙江工商大学图书馆": { "display": "图书馆", "feature": "library", "lod": 0, "levels": 8, "heightM": 34, "alias": ["下沙图书馆"], "zone": "north_teaching", "hero": true },
+    "浙江工商大学文体中心场馆（亚运手球比赛馆）": { "display": "文体中心", "feature": "sport", "lod": 0, "levels": 3, "heightM": 24, "alias": ["亚运手球馆", "文体中心场馆"], "zone": "west_sports", "hero": true },
+    "学生活动中心": { "display": "学生活动中心", "feature": "venue", "lod": 0, "levels": 4, "heightM": 20, "alias": ["剧院", "师生之家"], "zone": "nw_group", "hero": true },
+    "国际会议中心": { "display": "国际会议中心", "feature": "venue", "lod": 0, "levels": 3, "heightM": 15, "alias": [], "zone": "south_colleges", "hero": false },
+
+    "A教学楼": { "display": "A教学楼", "feature": "teaching", "lod": 1, "levels": 5, "alias": ["A教"], "zone": "north_teaching" },
+    "B教学楼": { "display": "B教学楼", "feature": "teaching", "lod": 1, "levels": 5, "alias": ["B教"], "zone": "north_teaching" },
+    "C教学楼": { "display": "C教学楼", "feature": "teaching", "lod": 1, "levels": 5, "alias": ["C教"], "zone": "north_teaching" },
+    "D教学楼": { "display": "D教学楼", "feature": "teaching", "lod": 1, "levels": 5, "alias": ["D教"], "zone": "ne_teaching" },
+    "E教学楼": { "display": "E教学楼", "feature": "teaching", "lod": 1, "levels": 5, "alias": ["E教"], "zone": "ne_teaching" },
+    "F教学楼": { "display": "F教学楼", "feature": "teaching", "lod": 1, "levels": 5, "alias": ["F教"], "zone": "ne_teaching" },
+
+    "信息与电子工程学院": { "display": "信电楼", "feature": "college", "lod": 1, "levels": 6, "alias": ["信电学院", "新电学院综合楼", "信息与电子工程学院楼", "萨塞克斯人工智能学院"], "zone": "south_colleges" },
+    "计算机与信息工程学院": { "display": "信息楼", "feature": "college", "lod": 1, "levels": 5, "alias": ["计算机学院", "计算机科学与技术学院"], "zone": "south_colleges" },
+    "经济学院": { "display": "经济楼", "feature": "college", "lod": 1, "levels": 5, "alias": ["经济学院楼"], "zone": "nw_group" },
+    "管理学院": { "display": "管理楼", "feature": "college", "lod": 1, "levels": 5, "alias": ["工商管理学院"], "zone": "nw_group" },
+    "外语学院": { "display": "外语楼", "feature": "college", "lod": 1, "levels": 5, "alias": ["外国语学院"], "zone": "sw_colleges" },
+    "东语学院": { "display": "东语楼", "feature": "college", "lod": 1, "levels": 5, "alias": ["东方语言与哲学学院"], "zone": "sw_colleges" },
+    "艺术学院": { "display": "艺术楼", "feature": "college", "lod": 1, "levels": 5, "alias": ["艺术设计学院"], "zone": "sw_colleges" },
+    "食品与生物工程学院": { "display": "食品楼", "feature": "college", "lod": 1, "levels": 5, "alias": ["食品学院"], "zone": "south_colleges" },
+    "逸夫楼（环境科学与工程学院）": { "display": "环境楼", "feature": "college", "lod": 1, "levels": 5, "alias": ["逸夫楼", "环境科学与工程学院"], "zone": "south_colleges" },
+    "文科实验楼": { "display": "文科实验楼", "feature": "college", "lod": 1, "levels": 5, "alias": [], "zone": "south_colleges" },
+    "网络教育中心": { "display": "网络信息中心", "feature": "college", "lod": 1, "levels": 5, "alias": ["校网中心"], "zone": "north_teaching" },
+
+    "游泳馆": { "display": "游泳馆", "feature": "sport", "lod": 1, "levels": 2, "heightM": 12, "alias": ["钱锋游泳馆"], "zone": "west_sports" },
+    "风雨操场": { "display": "风雨操场", "feature": "sport", "lod": 1, "levels": 1, "heightM": 10, "alias": [], "zone": "west_sports" },
+
+    "金工车间": { "display": "金工车间", "feature": "service", "lod": 2, "levels": 1, "heightM": 8, "zone": "west_sports" },
+    "10kV开闭所": { "display": "10kV开闭所", "feature": "service", "lod": 2, "levels": 1, "zone": "center" },
+    "1号综合楼": { "display": "钱江湾综合楼", "feature": "service", "lod": 2, "levels": 4, "zone": "life_qianjiangwan" },
+    "2号综合楼": { "display": "金沙港2号综合楼", "feature": "service", "lod": 2, "levels": 3, "zone": "life_jinshagang" },
+    "3号综合楼": { "display": "金沙港3号综合楼", "feature": "service", "lod": 2, "levels": 3, "zone": "life_jinshagang" },
+    "行云苑食堂": { "display": "行云苑食堂", "feature": "canteen", "lod": 2, "levels": 3, "alias": ["行云苑"], "zone": "life_qianjiangwan" },
+    "流水苑食堂": { "display": "流水苑食堂", "feature": "canteen", "lod": 2, "levels": 3, "alias": ["流水苑"], "zone": "life_qianjiangwan" },
+    "清风苑食堂": { "display": "清风苑食堂", "feature": "canteen", "lod": 2, "levels": 2, "alias": ["清风苑"], "zone": "life_jinshagang" },
+    "明月苑食堂": { "display": "明月苑食堂", "feature": "canteen", "lod": 2, "levels": 2, "alias": ["明月苑"], "zone": "life_yupingzhou" }
+  },
+  "ignore": ["A", "C", "D", "E", "垂梯"],
+  "patterns": [
+    { "re": "^(\\d+)号学生公寓$", "feature": "dorm", "lod": 2, "levels": 6 },
+    { "re": "^食堂$", "feature": "canteen", "lod": 2, "levels": 2 },
+    { "re": "变电所|开闭所|锅炉房", "feature": "service", "lod": 2, "levels": 1 }
+  ]
+}

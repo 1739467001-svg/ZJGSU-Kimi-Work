@@ -1,0 +1,39 @@
+{
+  "comment": "仿真数据:图书馆自习座位,按楼层分布。",
+  "buildingId": "w563533987",
+  "name": "图书馆",
+  "floors": [
+    {
+      "floor": 1,
+      "seats": 500
+    },
+    {
+      "floor": 2,
+      "seats": 500
+    },
+    {
+      "floor": 3,
+      "seats": 500
+    },
+    {
+      "floor": 4,
+      "seats": 500
+    },
+    {
+      "floor": 5,
+      "seats": 500
+    },
+    {
+      "floor": 6,
+      "seats": 500
+    },
+    {
+      "floor": 7,
+      "seats": 500
+    },
+    {
+      "floor": 8,
+      "seats": 500
+    }
+  ]
+}
