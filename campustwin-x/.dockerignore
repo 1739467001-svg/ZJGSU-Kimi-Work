@@ -1,0 +1,14 @@
+# Docker 构建上下文排除(不影响 git 提交内容)
+node_modules
+dist
+.git
+.gitignore
+.DS_Store
+
+# 开发期参考资料,运行时不需要
+ref-photos
+docs
+scripts
+tools
+*.md
+!README.md
