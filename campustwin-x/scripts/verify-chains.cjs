@@ -29,6 +29,7 @@ const { createCommandHandler } = require(path.join(OUT, 'agent', 'index.js'))
 const { useCampusStore } = require(path.join(OUT, 'store', 'campusStore.js'))
 const { useUIStore } = require(path.join(OUT, 'store', 'uiStore.js'))
 const { useSimStore } = require(path.join(OUT, 'store', 'simStore.js'))
+const { useTourStore } = require(path.join(OUT, 'store', 'tourStore.js'))
 
 const buildings = JSON.parse(
   fs.readFileSync(path.join(ROOT, 'public/data/campus/buildings.json'), 'utf8'),
@@ -131,19 +132,31 @@ async function main() {
     assert(/站/.test(r.message), '巡礼讲稿缺失')
     return `巡礼启动,讲稿 ${r.message.split('\n').length - 1} 站,镜头=campus`
   })
-  // 链路④控制:下一站/上一站 → 明确反馈而非「没听懂」
+  // 链路④控制:下一站/暂停 → 真实逐站控制(操作 tourStore,依赖上一条链路已启动巡礼)
   await check('④巡礼控制', '下一站', (r) => {
     assert(r.type === 'knowledge', `type=${r.type}`)
-    assert(/自动巡航/.test(r.message), `反馈文案缺失:${r.message}`)
-    return '巡礼控制有明确反馈'
+    const ts = useTourStore.getState()
+    assert(ts.waypoints.length > 0, 'tourStore 无途径点(巡礼未启动)')
+    assert(ts.currentIndex === 1, `currentIndex=${ts.currentIndex},应为 1`)
+    assert(/第 2\/\d+ 站/.test(r.message), `跳转文案缺失:${r.message}`)
+    return `逐站跳转生效:第 ${ts.currentIndex + 1}/${ts.waypoints.length} 站「${ts.waypoints[1].name}」`
   })
-  // 场景:夜晚 → simClock 锁定 21:30 + 天气晴
+  await check('④巡礼控制', '暂停一下', (r) => {
+    assert(r.type === 'knowledge', `type=${r.type}`)
+    const ts = useTourStore.getState()
+    assert(ts.status === 'paused', `status=${ts.status},应为 paused`)
+    assert(/已暂停/.test(r.message), `暂停文案缺失:${r.message}`)
+    return `巡礼已暂停于第 ${ts.currentIndex + 1} 站`
+  })
+  // 场景:夜晚 → simClock 锁定「当日日落后 90 分钟」(sun.ts 动态锁定,杭州全年约 18:20~20:35)+ 天气晴
   await check('场景·夜', '切换到夜晚场景', (r, s) => {
     assert(r.type === 'scene_changed', `type=${r.type}`)
     assert(s.sim.simClock.locked === true, 'simClock 未锁定')
-    assert(new Date(s.sim.simClock.nowMs).getHours() === 21, `锁定小时=${new Date(s.sim.simClock.nowMs).getHours()}`)
+    // 换算为东八区小时断言,与运行机器时区无关
+    const h = Math.floor(s.sim.simClock.nowMs / 3_600_000 + 8) % 24
+    assert(h >= 18 && h <= 21, `锁定小时(东八区)=${h},应在日落后晚间 18~21 区间`)
     assert(s.ui.weather === 'clear', `weather=${s.ui.weather}`)
-    return 'simClock 锁定 21:30,天气 clear'
+    return `simClock 锁定日落后 90 分钟(${h} 时),天气 clear`
   })
   // 场景:秋天下雨 → 天气 rain + 季节 autumn
   await check('场景·秋雨', '看看秋天下雨的校园', (r, s) => {

@@ -31,6 +31,7 @@ interface LabelSkin {
 }
 
 // 每楼一张 CanvasTexture,模块级缓存(楼数稳定,纹理常驻不重建)
+// 导出供 BuildingSlice 房间/楼层标签复用(key 加前缀避免与楼 id 冲突)
 const skinCache = new Map<string, LabelSkin>()
 
 function roundRectPath(
@@ -91,7 +92,7 @@ function createLabelSkin(name: string): LabelSkin {
   return { texture, aspect: w / h }
 }
 
-function getLabelSkin(id: string, name: string): LabelSkin {
+export function getLabelSkin(id: string, name: string): LabelSkin {
   let skin = skinCache.get(id)
   if (!skin) {
     skin = createLabelSkin(name)

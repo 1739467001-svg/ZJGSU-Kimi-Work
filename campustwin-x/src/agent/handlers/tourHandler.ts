@@ -1,6 +1,7 @@
 // 导游Agent:校训巡礼(campus_tour)+ 校园知识问答(ask_knowledge)
 import type { Intent } from '../../lib/agentTypes'
 import type { BakedLandmark } from '../../lib/campusData'
+import { useTourStore } from '../../store/tourStore'
 import { loadLandmarks, type HandlerContext, type HandlerOutput } from '../dispatchIntent'
 
 /** 校训「诚毅勤朴」巡礼固定途径点(按 landmarks.json id) */
@@ -44,7 +45,12 @@ async function startTour(_intent: Intent, ctx: HandlerContext): Promise<HandlerO
   }
 
   const script = waypoints.map((l, i) => `${i + 1}. ${l.name}——${oneSentence(l)}`).join('\n')
-  const message = `校训巡礼路线已生成(诚·毅·勤·朴,共 ${waypoints.length} 站):\n${script}\n导游面板已展开,跟随镜头依次巡礼。`
+  const message = `校训巡礼路线已生成(诚·毅·勤·朴,共 ${waypoints.length} 站):\n${script}\n导游面板已展开,镜头将逐站巡航,讲到哪飞到哪。`
+
+  // 逐站巡航:途径点写入 tourStore,TourCruise 接管镜头逐站飞行
+  useTourStore.getState().start(
+    waypoints.map((l) => ({ id: l.id, name: l.name, position: l.position, script: oneSentence(l) })),
+  )
 
   // 镜头联动:先拉到全校视角,巡礼途径点周边楼宇同步高亮
   ctx.campus.getState().focusCamera({ type: 'campus' })
@@ -125,17 +131,58 @@ async function answerKnowledge(intent: Intent, ctx: HandlerContext): Promise<Han
 }
 
 // ---------------------------------------------------------------------------
-// 巡礼控制(上一站/下一站等)——逐站跳转状态(tourStore)为后续集成遗留点,
-// 当前自动巡航,这里给出明确反馈而不是「没听懂」
+// 巡礼控制(上一站/下一站/暂停/继续)——操作 tourStore,镜头由 TourCruise 响应
 // ---------------------------------------------------------------------------
 function tourControl(intent: Intent): HandlerOutput {
   const word = intent.rawText.trim()
-  const message = /暂停/.test(word)
-    ? '巡礼讲解已收到「暂停」请求。当前巡礼为自动巡航,可在导游面板点「结束」停止;想继续时说「带我逛校园」即可重新开始。'
-    : `已收到「${word}」。当前巡礼为自动巡航,讲解与镜头按路线依次推进,暂不支持逐站跳转;可随时在指令台追问(如「综合大楼多少层」),答完自动续游。`
+  const tour = useTourStore.getState()
+
+  // 无进行中巡礼(未开始/已结束):明确反馈而不是「没听懂」
+  if (!tour.waypoints.length || tour.status === 'idle') {
+    return {
+      result: {
+        type: 'knowledge',
+        message: `已收到「${word}」,但当前没有进行中的巡礼。对我说「带我逛校园」即可开始校训巡礼。`,
+      },
+      trace: [{ title: '巡礼控制', detail: `「${word}」→ 无进行中巡礼,已提示如何开始` }],
+    }
+  }
+
+  if (/暂停/.test(word)) {
+    tour.pause()
+    const wp = tour.waypoints[tour.currentIndex]
+    return {
+      result: {
+        type: 'knowledge',
+        message: `巡礼已暂停在第 ${tour.currentIndex + 1}/${tour.waypoints.length} 站「${wp.name}」。说「继续巡礼」或在导游面板点「继续」即可续游。`,
+      },
+      trace: [{ title: '巡礼控制', detail: `「${word}」→ 已暂停于第 ${tour.currentIndex + 1} 站` }],
+    }
+  }
+
+  if (/继续|续游|恢复/.test(word)) {
+    tour.resume()
+    const wp = tour.waypoints[tour.currentIndex]
+    return {
+      result: {
+        type: 'knowledge',
+        message: `巡礼继续,镜头正前往第 ${tour.currentIndex + 1}/${tour.waypoints.length} 站「${wp.name}」。`,
+      },
+      trace: [{ title: '巡礼控制', detail: `「${word}」→ 已继续` }],
+    }
+  }
+
+  // 上一站/下一站(中文数字规整后 rawText 仍可能带「1」,两种形态都兼容)
+  if (/上一站|上1站|上个/.test(word)) tour.prev()
+  else tour.next()
+  const now = useTourStore.getState()
+  const wp = now.waypoints[now.currentIndex]
   return {
-    result: { type: 'knowledge', message },
-    trace: [{ title: '巡礼控制', detail: `「${word}」→ 自动巡航模式,已反馈控制说明` }],
+    result: {
+      type: 'knowledge',
+      message: `已跳转到第 ${now.currentIndex + 1}/${now.waypoints.length} 站「${wp.name}」,镜头正在前往。`,
+    },
+    trace: [{ title: '巡礼控制', detail: `「${word}」→ 跳转第 ${now.currentIndex + 1} 站「${wp.name}」` }],
   }
 }
 

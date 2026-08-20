@@ -47,6 +47,7 @@ function SceneContent({ data }: { data: CampusData }) {
   const slicedId = useCampusStore((s) => s.slicedBuildingId)
   const selectBuilding = useCampusStore((s) => s.selectBuilding)
   const focusCamera = useCampusStore((s) => s.focusCamera)
+  const setSlicedBuilding = useCampusStore((s) => s.setSlicedBuilding)
 
   // 剖层期间隐藏原楼(BuildingSlice 自绘剖层视图);hero 楼从灰盒渲染中剔除,避免与精模重叠
   const visible = useMemo(
@@ -58,6 +59,8 @@ function SceneContent({ data }: { data: CampusData }) {
   const onSelect = (b: BakedBuilding) => {
     selectBuilding(b.id)
     focusCamera({ type: 'building', id: b.id })
+    // 分层试点期间:点击其他(灰盒)楼即退出信电楼分层视图
+    if (slicedId) setSlicedBuilding(null)
   }
 
   return (
@@ -133,11 +136,15 @@ function SceneContent({ data }: { data: CampusData }) {
 export default function CampusCanvas({ data }: { data: CampusData }) {
   const quality = useUIStore((s) => s.quality)
   const selectBuilding = useCampusStore((s) => s.selectBuilding)
+  const setSlicedBuilding = useCampusStore((s) => s.setSlicedBuilding)
   return (
     <Canvas
       dpr={resolvePixelRatio(quality)}
       camera={{ position: [420, 480, 620], fov: 42, near: 1, far: 6000 }}
-      onPointerMissed={() => selectBuilding(null)}
+      onPointerMissed={() => {
+        selectBuilding(null)
+        setSlicedBuilding(null) // 点击空白处退出选中与分层视图
+      }}
       style={{ background: '#0e1114' }}
     >
       <Suspense fallback={null}>

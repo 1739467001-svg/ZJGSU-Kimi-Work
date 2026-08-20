@@ -1,8 +1,9 @@
 import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import type { HeroBuildingProps } from './HeroBuildings'
+import { useCampusStore } from '../../../store/campusStore'
 
 export const XINDIAN_ID = 'w563515417'
 
@@ -398,8 +399,17 @@ export default function XindianBuilding({ building, nightFactor }: HeroBuildingP
 
   const plaqueZ = 7.0 // 入口玻璃盒前表面外侧
 
+  // 分层试点:点击信电楼 → 选中 + 镜头聚焦 + 自动进入全楼分层视图(逐层展开,显示各层房间位置)
+  const handleClick = (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation()
+    const s = useCampusStore.getState()
+    s.selectBuilding(building.id)
+    s.focusCamera({ type: 'building', id: building.id })
+    s.setSlicedBuilding(building.id)
+  }
+
   return (
-    <group name="xindian" position={[building.center[0], 0, building.center[1]]}>
+    <group name="xindian" position={[building.center[0], 0, building.center[1]]} onClick={handleClick}>
       {/* ① 主体 6 层板楼:侧面米砂面砖 + 竖向窗带,顶面素色屋面 */}
       <mesh geometry={mainGeometry} material={[mainMaterial, roofMaterial]} />
       {/* ② 南立面西段通高弧形玻璃翼 */}

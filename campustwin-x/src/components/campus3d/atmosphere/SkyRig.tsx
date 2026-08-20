@@ -28,6 +28,11 @@ const SKY_RAYLEIGH_NIGHT = 1.8
 // 白天 Sky 曝光系数(夜晚恒 1.0,不改变原夜景天空)
 // 0.55→0.45:配合更高 rayleigh 压低 ACES 下的整体亮度,防止天空发白、恢复蓝色饱和度
 const SKY_EXPOSURE_DAY = 0.45
+// 地平线霾色:Preetham 近地平线(仰角≈0°)散射去饱和呈死白。
+// 教训:在 texColor(色调映射前)做色相/亮度微调会被 ACES 高亮压缩吞掉(实测无效),
+// 必须在 tonemapping/colorspace 之后的显示空间直接混入霾色;tint 为 sRGB 显示值
+const SKY_HAZE_TINT = new THREE.Vector3(0x9d / 255, 0xb8 / 255, 0xca / 255) // #9db8ca
+const SKY_HAZE_STRENGTH_DAY = 0.5
 
 const tmpDir = new THREE.Vector3()
 const tmpColor = new THREE.Color()
@@ -53,16 +58,49 @@ export default function SkyRig({ starCount = 4000 }: { starCount?: number }) {
   }, [])
 
   // Sky 的 Preetham 输出在 ACES 下白天整体过曝发白:注入 uSkyExposure uniform,
-  // 缩放 (Lin + L0) * 0.04 的亮度系数,白天压低曝光恢复蓝天饱和度,夜晚保持 1.0 原观感
+  // 缩放 (Lin + L0) * 0.04 的亮度系数,白天压低曝光恢复蓝天饱和度,夜晚保持 1.0 原观感。
+  // 注意:drei 的 Sky 来自 three-stdlib(非 three/examples),其着色器末行为
+  // gl_FragColor = vec4( retColor, 1.0 ) —— 注入锚点以 three-stdlib 源码为准;
+  // 锚点未命中时 replace 静默无效果,故统一走 inject() 命中校验。
   useEffect(() => {
     const sky = skyRef.current
     if (!sky) return
     const mat = sky.material
+    const inject = (anchor: string, code: string, tag: string) => {
+      if (!mat.fragmentShader.includes(anchor)) {
+        console.warn(`[SkyRig] 着色器注入锚点未命中(${tag}),three-stdlib Sky 源码可能已变更`)
+        return
+      }
+      mat.fragmentShader = mat.fragmentShader.replace(anchor, code)
+    }
     if (!('uSkyExposure' in mat.uniforms)) {
       mat.uniforms.uSkyExposure = { value: SKY_EXPOSURE_DAY }
-      mat.fragmentShader = mat.fragmentShader
-        .replace('void main() {', 'uniform float uSkyExposure;\nvoid main() {')
-        .replace('vec3 texColor = ( Lin + L0 ) * 0.04', 'vec3 texColor = ( Lin + L0 ) * ( 0.04 * uSkyExposure )')
+      inject('void main() {', 'uniform float uSkyExposure;\nvoid main() {', 'uSkyExposure-decl')
+      inject(
+        'vec3 texColor = ( Lin + L0 ) * 0.04',
+        'vec3 texColor = ( Lin + L0 ) * ( 0.04 * uSkyExposure )',
+        'uSkyExposure-scale',
+      )
+      mat.needsUpdate = true
+    }
+    // 地平线霾色注入:仰角窄带(地平线→约 25°)混入霾蓝灰,仅白天启用;
+    // 显示空间注入(ACES 之后),否则高亮区色相偏移会被色调映射压没
+    if (!('uHorizonHaze' in mat.uniforms)) {
+      mat.uniforms.uHorizonHaze = { value: SKY_HAZE_STRENGTH_DAY }
+      mat.uniforms.uHorizonTint = { value: SKY_HAZE_TINT }
+      inject(
+        'void main() {',
+        'uniform float uHorizonHaze;\nuniform vec3 uHorizonTint;\nvoid main() {',
+        'uHorizonHaze-decl',
+      )
+      inject(
+        '#include <colorspace_fragment>',
+        `#include <colorspace_fragment>
+			// 地平线霾色:近地平线窄带去死白(显示空间混合,tint 为 sRGB)
+			float hazeBand = pow( 1.0 - clamp( direction.y, 0.0, 1.0 ), 4.0 );
+			gl_FragColor.rgb = mix( gl_FragColor.rgb, uHorizonTint, hazeBand * uHorizonHaze );`,
+        'uHorizonHaze-band',
+      )
       mat.needsUpdate = true
     }
   }, [])
@@ -122,6 +160,11 @@ export default function SkyRig({ starCount = 4000 }: { starCount?: number }) {
         // golden hour 轻微压曝光,橙金色更浓郁(深夜 goldenGlow=0,仍恒 1.0)
         mat.uniforms.uSkyExposure.value =
           THREE.MathUtils.lerp(SKY_EXPOSURE_DAY, 1.0, nf) - 0.06 * goldenGlow
+      }
+      if ('uHorizonHaze' in mat.uniforms) {
+        // 白天启用霾色,入夜归零;golden hour 减半,不压平日落的地平线橙金
+        mat.uniforms.uHorizonHaze.value =
+          THREE.MathUtils.lerp(SKY_HAZE_STRENGTH_DAY, 0, nf) * (1 - 0.5 * goldenGlow)
       }
     }
 

@@ -1,33 +1,36 @@
-import { useMemo } from 'react'
 import type { CSSProperties } from 'react'
-import { ArrowLeft, ArrowRight, Compass, Play, Square } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Compass, Pause, Play, Square } from 'lucide-react'
 import { useCampusStore } from '../../store/campusStore'
+import { useTourStore } from '../../store/tourStore'
 
 /**
- * 导游面板:字幕式导游(讲解词来自 导游Agent 消息流)。
- * 上一站/下一站/结束通过指令契约下发;巡礼控制状态(tourStore)为后续集成遗留点。
+ * 导游面板:字幕式导游(进度与讲稿来自 tourStore,镜头由 TourCruise 逐站巡航)。
+ * 上一站/下一站/暂停-继续/结束直接调 tourStore action;结束同时恢复 sceneMode/panel。
  */
 export function TourPanel() {
-  const messages = useCampusStore((s) => s.messages)
   const sceneMode = useCampusStore((s) => s.sceneMode)
   const submitCommand = useCampusStore((s) => s.submitCommand)
   const setSceneMode = useCampusStore((s) => s.setSceneMode)
   const setActivePanel = useCampusStore((s) => s.setActivePanel)
   const focusCamera = useCampusStore((s) => s.focusCamera)
 
-  const touring = sceneMode === 'tour'
+  const waypoints = useTourStore((s) => s.waypoints)
+  const currentIndex = useTourStore((s) => s.currentIndex)
+  const status = useTourStore((s) => s.status)
 
-  // 字幕:导游期间的 Agent 消息,最新一条为主字幕,其余为历史
-  const subtitles = useMemo(() => {
-    const agentMsgs = messages.filter((m) => m.role === 'agent')
-    if (!touring) return { current: null as string | null, history: [] as string[] }
-    return {
-      current: agentMsgs[agentMsgs.length - 1]?.text ?? null,
-      history: agentMsgs.slice(-4, -1).map((m) => m.text).reverse(),
-    }
-  }, [messages, touring])
+  const touring = sceneMode === 'tour'
+  const total = waypoints.length
+  const wp = waypoints[currentIndex]
+  /** 巡礼自然走完(镜头已返校):面板保留显示结束态,等用户点「结束」收尾 */
+  const finished = touring && status === 'idle' && total > 0
+  // 历史字幕:当前站之前最近 3 站的讲稿
+  const history = waypoints
+    .slice(Math.max(0, currentIndex - 3), currentIndex)
+    .map((w) => `${w.name}——${w.script}`)
+    .reverse()
 
   const stop = () => {
+    useTourStore.getState().stop()
     setSceneMode('idle')
     setActivePanel('empty')
     focusCamera({ type: 'campus' })
@@ -52,32 +55,64 @@ export function TourPanel() {
     <div style={S.root}>
       <div style={S.sectionTitle}><Compass size={12} style={{ verticalAlign: -2 }} /> 导游字幕</div>
       <div style={S.subtitleBox}>
-        {subtitles.current ? (
-          <div style={S.subtitleCurrent}>{subtitles.current}</div>
+        {finished ? (
+          <div style={S.subtitleCurrent}>
+            巡礼已结束,共 {total} 站。镜头已回到全校视角,随时可说「带我逛校园」再走一遍。
+          </div>
+        ) : wp ? (
+          <>
+            <div style={S.progress}>
+              第 {currentIndex + 1}/{total} 站 · {wp.name}
+              {status === 'paused' ? '(已暂停)' : ''}
+            </div>
+            <div style={S.subtitleCurrent}>{wp.script}</div>
+          </>
         ) : (
           <div style={S.empty}>导游准备中…</div>
         )}
       </div>
-      {subtitles.history.length > 0 && (
+      {history.length > 0 && !finished && (
         <div style={S.history}>
-          {subtitles.history.map((h, i) => (
+          {history.map((h, i) => (
             <div key={i} style={S.historyItem}>{h}</div>
           ))}
         </div>
       )}
 
       <div style={S.controls}>
-        <button type="button" onClick={() => void submitCommand('上一站')} style={S.ctrlBtn}>
+        <button
+          type="button"
+          onClick={() => useTourStore.getState().prev()}
+          disabled={finished || currentIndex === 0}
+          style={S.ctrlBtn}
+        >
           <ArrowLeft size={14} /> 上一站
         </button>
-        <button type="button" onClick={() => void submitCommand('下一站')} style={S.ctrlBtnPrimary}>
+        <button
+          type="button"
+          onClick={() => {
+            const t = useTourStore.getState()
+            if (t.status === 'playing') t.pause()
+            else t.resume()
+          }}
+          disabled={finished}
+          style={S.ctrlBtn}
+        >
+          {status === 'playing' ? <><Pause size={14} /> 暂停</> : <><Play size={14} /> 继续</>}
+        </button>
+        <button
+          type="button"
+          onClick={() => useTourStore.getState().next()}
+          disabled={finished || currentIndex >= total - 1}
+          style={S.ctrlBtnPrimary}
+        >
           下一站 <ArrowRight size={14} />
         </button>
         <button type="button" onClick={stop} style={S.ctrlBtnDanger}>
           <Square size={13} /> 结束
         </button>
       </div>
-      <div style={S.tip}>途中可直接在指令台追问,如「综合大楼多少层?」,答完自动续游。</div>
+      <div style={S.tip}>拖动/滚轮可随时接管相机(巡礼暂停,点「继续」续游);也可在指令台说「上一站/下一站/暂停」。</div>
     </div>
   )
 }
@@ -89,6 +124,7 @@ const S: Record<string, CSSProperties> = {
     background: '#161b21', border: '1px solid #2a323b', borderLeft: '3px solid #e8b84b',
     borderRadius: 8, padding: '14px 14px', minHeight: 96,
   },
+  progress: { fontSize: 12, opacity: 0.55, letterSpacing: 1, marginBottom: 8 },
   subtitleCurrent: { fontSize: 14.5, lineHeight: 1.9, color: '#dde3e8' },
   history: { display: 'flex', flexDirection: 'column', gap: 6 },
   historyItem: {

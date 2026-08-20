@@ -5,6 +5,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { BakedBuilding } from '../../../lib/campusData'
 import { useCampusStore } from '../../../store/campusStore'
 import { useSimStore } from '../../../store/simStore'
+import { currentNightFactor } from '../atmosphere/dayNight'
 
 const BAND_THICK = 0.5
 const BAND_HEIGHT = 0.7
@@ -84,11 +85,14 @@ interface Props {
  * 楼顶灯带:L1+ 实名楼顶部一圈薄 box 灯带,颜色随 simStore.buildingOccupancy
  * (空闲绿→金→橙红,无数据降亮度);campusStore.alarmBuildingId 命中时该楼灯带红色脉冲
  * (AlarmPulse 的"灯带段染色"联动)。全部楼合并为单一网格,1 DrawCall。
+ * 昼夜:灯带是指挥中心夜态元素,白天随 nightFactor 淡出至 10% 微痕(与 GroundPlate
+ * 红线同款处理),避免日景真实模式下屋顶出现金/绿色"描边"错觉;夜晚恢复全亮。
  */
 export default function StatusLightBand({ buildings }: Props) {
   const buildingOccupancy = useSimStore((s) => s.buildingOccupancy)
   const alarmBuildingId = useCampusStore((s) => s.alarmBuildingId)
   const meshRef = useRef<THREE.Mesh | null>(null)
+  const matRef = useRef<THREE.MeshBasicMaterial | null>(null)
 
   const band = useMemo(() => buildBands(buildings), [buildings])
   useEffect(() => () => band?.geometry.dispose(), [band])
@@ -121,8 +125,12 @@ export default function StatusLightBand({ buildings }: Props) {
     repaint()
   }, [repaint, alarmBuildingId])
 
-  // 告警楼灯带红色呼吸(sin(t×4) 与 AlarmPulse 同频)
+  // 昼夜淡出 + 告警楼灯带红色呼吸(sin(t×4) 与 AlarmPulse 同频)
   useFrame(({ clock }) => {
+    // 白天淡出至 10% 微痕,夜晚全亮(告警脉冲叠加在顶点色上,不透明度同步缩放)
+    if (matRef.current) {
+      matRef.current.opacity = 0.95 * (0.1 + 0.9 * currentNightFactor())
+    }
     if (!alarmBuildingId || !band || !meshRef.current) return
     const list = band.ranges.get(alarmBuildingId)
     if (!list) return
@@ -142,7 +150,7 @@ export default function StatusLightBand({ buildings }: Props) {
   if (!band) return null
   return (
     <mesh geometry={band.geometry} ref={meshRef}>
-      <meshBasicMaterial vertexColors transparent opacity={0.95} toneMapped={false} />
+      <meshBasicMaterial ref={matRef} vertexColors transparent opacity={0.95} toneMapped={false} />
     </mesh>
   )
 }

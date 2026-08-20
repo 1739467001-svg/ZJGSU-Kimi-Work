@@ -312,15 +312,22 @@ function TriumphGate({ position, nightFactor }: GateProps) {
       slab.translate(0, 0, -2.2)
       parts.push(slab)
     }
-    const merged = mergeGeometries(parts, false)
+    // Box(索引几何)与 Extrude(非索引)混合会导致 mergeGeometries 返 null,
+    // fallback 只剩 parts[0] 一根立柱、帆形顶板整段丢失 —— 统一转非索引再合并
+    const converted: THREE.BufferGeometry[] = []
+    const flat = parts.map((g) => {
+      if (!g.index) return g
+      const ng = g.toNonIndexed()
+      converted.push(ng)
+      return ng
+    })
+    const merged = mergeGeometries(flat, false)
     if (merged) {
-      for (const g of parts) g.dispose()
+      for (const g of [...parts, ...converted]) g.dispose()
       return merged
     }
     return parts[0]
   }, [])
-
-  /* 地球仪基座合并(1 DrawCall):方台 + 收分圆台 */
   const pedestalGeometry = useMemo(() => {
     const plinth = new THREE.BoxGeometry(3, 0.3, 3)
     plinth.translate(0, 0.15, 0)

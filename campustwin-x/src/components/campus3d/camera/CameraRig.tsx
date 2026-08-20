@@ -1,5 +1,5 @@
 // CameraRig —— 运镜组合层:持有相机所有权总线(CameraBus),
-// 仲裁 OpeningSequence / CameraDirector / CruisePath 三者对相机的独占权,
+// 仲裁 OpeningSequence / CameraDirector / CruisePath / TourCruise 四者对相机的独占权,
 // 并注册全局输入监听实现"锁定期按下指针/按键即打断交还"。
 import { useEffect, useRef } from 'react'
 import { useThree } from '@react-three/fiber'
@@ -8,12 +8,13 @@ import { useUIStore } from '../../../store/uiStore'
 import OpeningSequence from './OpeningSequence'
 import CameraDirector from './CameraDirector'
 import CruisePath from './CruisePath'
+import TourCruise from './TourCruise'
 
 /** OrbitControls 实例 ref(结构化类型,兼容 useRef<OrbitControlsImpl | null>) */
 export type OrbitControlsRef = { current: OrbitControlsImpl | null }
 
 /** 相机独占者:null = OrbitControls 自由交互 */
-export type CameraOwner = 'opening' | 'director' | 'cruise' | null
+export type CameraOwner = 'opening' | 'director' | 'cruise' | 'tour' | null
 
 /** 运镜仲裁总线(可变 ref,跨组件共享,不触发渲染) */
 export interface CameraBus {
@@ -62,6 +63,7 @@ export default function CameraRig({ controlsRef }: CameraRigProps) {
       <OpeningSequence bus={busRef} controlsRef={controlsRef} />
       <CameraDirector bus={busRef} controlsRef={controlsRef} />
       <CruisePath bus={busRef} controlsRef={controlsRef} />
+      <TourCruise bus={busRef} controlsRef={controlsRef} />
     </>
   )
 }

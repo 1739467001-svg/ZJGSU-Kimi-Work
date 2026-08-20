@@ -100,6 +100,8 @@ function CommandCapsule() {
 
 /** 选中楼宇信息卡(两种模式共用,浮于 3D 视口右下) */
 function SelectedCard({ building }: { building: BakedBuilding }) {
+  const sliced = useCampusStore((s) => s.slicedBuildingId === building.id)
+  const setSlicedBuilding = useCampusStore((s) => s.setSlicedBuilding)
   return (
     <div style={S.card}>
       <div style={{ fontSize: 17, fontWeight: 700 }}>{building.name ?? '未命名楼宇'}</div>
@@ -110,6 +112,14 @@ function SelectedCard({ building }: { building: BakedBuilding }) {
         {building.hero ? ' · 地标精模' : ''}
       </div>
       <div style={S.row}>层数:{building.levels} · 高度:{building.height}m</div>
+      {sliced && (
+        <div style={S.row}>
+          分层视图:逐层展开,显示各层房间位置(点击空白处亦可退出)
+          <button type="button" onClick={() => setSlicedBuilding(null)} style={S.cardBtn}>
+            退出分层
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -149,6 +159,11 @@ export default function App() {
           }),
         )
         stopSim = startSimEngine()
+
+        // dev 调试句柄:e2e/无头截图验证用(仅开发服务器,构建产物不含)
+        if (import.meta.env.DEV) {
+          ;(window as unknown as Record<string, unknown>).__campusStore = useCampusStore
+        }
 
         // 演示/调试:URL 锁定仿真时刻,如 ?t=21:30(当日,locked 不流逝)
         const params = new URLSearchParams(window.location.search)
@@ -255,6 +270,10 @@ const S: Record<string, CSSProperties> = {
     padding: '13px 15px', boxShadow: '0 8px 30px #00000088', zIndex: 15,
   },
   row: { fontSize: 12.5, marginTop: 6, opacity: 0.85 },
+  cardBtn: {
+    display: 'block', marginTop: 8, padding: '5px 12px', fontSize: 12, cursor: 'pointer',
+    background: '#3aa7ff22', color: '#3aa7ff', border: '1px solid #3aa7ff55', borderRadius: 6,
+  },
   modeToggle: {
     position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)',
     display: 'flex', gap: 2, padding: 3, zIndex: 20,

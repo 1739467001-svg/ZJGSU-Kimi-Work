@@ -10,6 +10,10 @@ type Panel = 'booking' | 'repair' | 'overview' | 'navigation' | 'tour' | 'empty'
 let seq = 1
 const nid = (p: string) => `${p}_${seq++}`
 
+/** 楼宇高亮(青色轮廓)自动消退时长:避免指令执行完轮廓无限期挂在场景里 */
+const HIGHLIGHT_TTL_MS = 15_000
+let highlightTimer: ReturnType<typeof setTimeout> | null = null
+
 /** Agent 引擎在集成时通过 registerCommandHandler 注入,UI 只调 submitCommand */
 type CommandHandler = (text: string) => Promise<TaskResult>
 
@@ -87,7 +91,15 @@ export const useCampusStore = create<CampusState>()((set, get) => {
     setAgentSteps: (agentSteps) => set({ agentSteps }),
     patchAgentStep: (id, patch) => set((s) => ({ agentSteps: s.agentSteps.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
     applyResult: (r) => {
-      if (r.buildingIds?.length) set({ highlightedBuildingIds: r.buildingIds })
+      if (r.buildingIds?.length) {
+        set({ highlightedBuildingIds: r.buildingIds })
+        // 楼宇高亮仅作瞬时视觉反馈,到时自动清除;房间高亮是面板数据(BookingPanel 依赖),不清
+        if (highlightTimer) clearTimeout(highlightTimer)
+        highlightTimer = setTimeout(() => {
+          highlightTimer = null
+          set({ highlightedBuildingIds: [] })
+        }, HIGHLIGHT_TTL_MS)
+      }
       if (r.roomIds?.length) set({ highlightedRoomIds: r.roomIds })
       if (r.type === 'booking_candidates') set({ activePanel: 'booking', sceneMode: 'booking' })
       if (r.type === 'ticket_created') set({ activePanel: 'repair', sceneMode: 'repair' })

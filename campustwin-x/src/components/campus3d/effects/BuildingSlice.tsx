@@ -5,15 +5,21 @@ import type { BakedBuilding } from '../../../lib/campusData'
 import { FEATURE_COLOR } from '../../../lib/campusData'
 import type { Room } from '../../../lib/agentTypes'
 import { useCampusStore } from '../../../store/campusStore'
+import { getLabelSkin } from '../labels/SceneLabels'
 
-/** 目标层错开距离(m) */
-const EXPAND_STEP = 1.5
-/** 非目标层透明度 */
-const DIM_OPACITY = 0.12
-/** 普通楼伪剖层透明度 */
+/** 分层展开:相邻楼层板错开距离(m,爆炸图式,底层不动) */
+const EXPAND_GAP = 2.2
+/** 单层楼伪剖层透明度 */
 const SHELL_OPACITY = 0.3
-const CANDIDATE_COLOR = '#3aa7ff'
-const SELECTED_COLOR = '#e8b84b'
+/** 楼层板不透明度 */
+const SLAB_OPACITY = 0.92
+const ROOM_COLOR = '#b9c8d4' // 普通房间标记:冷灰蓝
+const CANDIDATE_COLOR = '#3aa7ff' // AI 高亮房间(候选蓝)
+const SELECTED_COLOR = '#e8b84b' // 选中房间(金)
+/** 房间名标签世界高度(m) */
+const ROOM_LABEL_H = 2.2
+/** 楼层号标签世界高度(m) */
+const FLOOR_LABEL_H = 3.0
 
 /** footprint → 拉伸 height 的楼体几何(与 Buildings.tsx 同一坐标约定:Shape 用 (x,-z),extrude 后 rotateX(-90°)) */
 function extrudeFootprint(b: BakedBuilding, height: number): THREE.BufferGeometry {
@@ -57,11 +63,12 @@ interface Props {
 }
 
 /**
- * 楼宇剖层(campusStore.slicedBuildingId 触发):
- * - hero 分段楼层结构(综合大楼):按层拆板,非目标层 opacity→0.12,目标层 y 错开 1.5m 展开;
- * - 普通楼伪剖层:整楼半透明壳 opacity 0.3;
- * - 目标房间(highlightedRoomIds / selectedRoomId)在 positionHint 处浮出小 box(InstancedMesh)。
- * 说明:本组件自绘剖层视图,不改动 Buildings.tsx;集成方在剖层期间应将原楼体网格隐藏/调暗。
+ * 楼宇分层视图(campusStore.slicedBuildingId 触发,试点:点击信电楼自动进入):
+ * - 多层楼(levels>1):按层拆板,爆炸图式逐层抬高 EXPAND_GAP,显示每层全部房间
+ *   标记(浮出小 box,InstancedMesh)+ 房间名标签 + 西侧楼层号标签;
+ * - 单层楼:整楼半透明壳 opacity 0.3 + 全部房间标记;
+ * - AI 联动:highlightedRoomIds 房间染候选蓝、selectedRoomId 染金,所在层楼板微发光。
+ * 说明:本组件自绘分层视图,不改动原楼体;集成方在分层期间已将原楼(灰盒/精模)隐藏。
  */
 export default function BuildingSlice({ buildings, rooms: roomsProp }: Props) {
   const slicedBuildingId = useCampusStore((s) => s.slicedBuildingId)
@@ -75,33 +82,34 @@ export default function BuildingSlice({ buildings, rooms: roomsProp }: Props) {
     [buildings, slicedBuildingId],
   )
 
-  const targetRooms = useMemo(() => {
-    if (!building) return []
-    return rooms.filter(
-      (r) => r.buildingId === building.id && (highlightedRoomIds.includes(r.id) || r.id === selectedRoomId),
-    )
-  }, [building, rooms, highlightedRoomIds, selectedRoomId])
+  // 分层显示该楼全部房间(AI 高亮/选中仅改配色,不再过滤)
+  const buildingRooms = useMemo(
+    () => (building ? rooms.filter((r) => r.buildingId === building.id) : []),
+    [building, rooms],
+  )
 
-  // 目标层集合(1 基);无目标房间时兜底 1 层,保证剖层可视
-  const targetFloors = useMemo(() => {
-    const set = new Set(targetRooms.map((r) => r.floor))
-    if (set.size === 0) set.add(1)
+  // 含高亮/选中房间的楼层:楼板微发光提示
+  const hotFloors = useMemo(() => {
+    const set = new Set<number>()
+    for (const r of buildingRooms) {
+      if (highlightedRoomIds.includes(r.id) || r.id === selectedRoomId) set.add(r.floor)
+    }
     return set
-  }, [targetRooms])
+  }, [buildingRooms, highlightedRoomIds, selectedRoomId])
 
-  const isHero = !!building && building.hero && building.levels > 1
+  // 多层楼 → 逐层楼板;单层楼 → 整体壳
+  const slabMode = !!building && building.levels > 1
+  const levels = building?.levels ?? 1
+  const slabH = building ? building.height / Math.max(levels, 1) : 0
 
-  // hero:每层楼板几何(构建时切好,非运行时切)
   const slabGeoms = useMemo(() => {
-    if (!building || !isHero) return []
-    const slabH = building.height / building.levels
-    return Array.from({ length: building.levels }, () => extrudeFootprint(building, slabH * 0.94))
-  }, [building, isHero])
+    if (!building || !slabMode) return []
+    return Array.from({ length: levels }, () => extrudeFootprint(building, slabH * 0.94))
+  }, [building, slabMode, levels, slabH])
 
-  // 普通楼:整体壳几何
   const shellGeom = useMemo(
-    () => (building && !isHero ? extrudeFootprint(building, building.height) : null),
-    [building, isHero],
+    () => (building && !slabMode ? extrudeFootprint(building, building.height) : null),
+    [building, slabMode],
   )
 
   useEffect(() => () => slabGeoms.forEach((g) => g.dispose()), [slabGeoms])
@@ -112,39 +120,41 @@ export default function BuildingSlice({ buildings, rooms: roomsProp }: Props) {
   const markerRef = useRef<THREE.InstancedMesh | null>(null)
   const dummy = useMemo(() => new THREE.Object3D(), [])
 
-  // 楼层展开偏移(目标层按序错开 EXPAND_STEP)
-  const floorOffset = useMemo(() => {
-    if (!building || !isHero) return new Map<number, number>()
-    const sorted = [...targetFloors].sort((a, b) => a - b)
-    return new Map(sorted.map((f, i) => [f, (i + 1) * EXPAND_STEP]))
-  }, [building, isHero, targetFloors])
+  // 楼层展开抬高量:floor(1 基)→ (floor-1) * EXPAND_GAP
+  const floorLift = (floor: number) => (Math.min(floor, levels) - 1) * EXPAND_GAP
 
-  // 房间浮出标记(世界坐标)
+  // 房间浮出标记(世界坐标,随楼层展开同步抬高)
   const markers = useMemo(() => {
     if (!building) return []
-    const slabH = building.height / Math.max(building.levels, 1)
-    return targetRooms.map((room) => {
+    return buildingRooms.map((room) => {
       const [x, y0, z] = roomWorldPosition(room, building)
-      const expand = isHero ? (floorOffset.get(room.floor) ?? 0) : 0
+      const lift = slabMode ? floorLift(room.floor) : 0
       return {
         id: room.id,
+        name: room.name,
         selected: room.id === selectedRoomId,
-        pos: [x, (room.positionHint ? y0 : Math.min(room.floor, building.levels) * slabH) + expand + 1.2, z] as [
-          number,
-          number,
-          number,
-        ],
+        highlighted: highlightedRoomIds.includes(room.id),
+        pos: [x, y0 + lift + 1.2, z] as [number, number, number],
       }
     })
-  }, [building, targetRooms, isHero, floorOffset, selectedRoomId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [building, buildingRooms, slabMode, selectedRoomId, highlightedRoomIds, slabH])
 
-  // 标记配色:候选蓝 / 选中金
+  // 楼层号标签锚点:footprint 西端(x 最小)外侧 6m,各层板中点高度
+  const floorLabelAnchor = useMemo(() => {
+    if (!building) return { x: 0, z: 0 }
+    let minX = Infinity
+    for (const [x] of building.footprint) if (x < minX) minX = x
+    return { x: minX - 6, z: building.center[1] }
+  }, [building])
+
+  // 标记配色:普通冷灰蓝 / 高亮蓝 / 选中金
   useEffect(() => {
     const im = markerRef.current
     if (!im) return
     const c = new THREE.Color()
     markers.forEach((m, i) => {
-      c.set(m.selected ? SELECTED_COLOR : CANDIDATE_COLOR)
+      c.set(m.selected ? SELECTED_COLOR : m.highlighted ? CANDIDATE_COLOR : ROOM_COLOR)
       im.setColorAt(i, c)
     })
     if (im.instanceColor) im.instanceColor.needsUpdate = true
@@ -154,19 +164,16 @@ export default function BuildingSlice({ buildings, rooms: roomsProp }: Props) {
     const t = clock.elapsedTime
     const damp = (cur: number, target: number) => THREE.MathUtils.damp(cur, target, 6, delta)
 
-    if (building && isHero) {
-      const slabH = building.height / building.levels
+    if (building && slabMode) {
       slabMeshRefs.current.forEach((mesh, i) => {
         if (!mesh) return
-        const floor = i + 1
-        const isTarget = targetFloors.has(floor)
-        const targetY = i * slabH + (isTarget ? (floorOffset.get(floor) ?? 0) : 0)
-        mesh.position.y = damp(mesh.position.y, targetY)
+        // 爆炸图式展开:各层从堆叠态阻尼抬升至 i*EXPAND_GAP
+        mesh.position.y = damp(mesh.position.y, i * slabH + i * EXPAND_GAP)
         const mat = mesh.material as THREE.MeshStandardMaterial
-        mat.opacity = damp(mat.opacity, isTarget ? 0.95 : DIM_OPACITY)
+        mat.opacity = damp(mat.opacity, SLAB_OPACITY)
       })
     }
-    if (building && !isHero && shellRef.current) {
+    if (building && !slabMode && shellRef.current) {
       const mat = shellRef.current.material as THREE.MeshStandardMaterial
       mat.opacity = damp(mat.opacity, SHELL_OPACITY)
     }
@@ -187,29 +194,29 @@ export default function BuildingSlice({ buildings, rooms: roomsProp }: Props) {
 
   return (
     <group>
-      {isHero &&
+      {slabMode &&
         slabGeoms.map((g, i) => (
           <mesh
             key={`slab_${i}`}
             geometry={g}
-            position={[0, (i * building.height) / building.levels, 0]}
+            position={[0, i * slabH, 0]}
             ref={(m) => {
               slabMeshRefs.current[i] = m
             }}
           >
             <meshStandardMaterial
               color={baseColor}
-              emissive={targetFloors.has(i + 1) ? CANDIDATE_COLOR : '#000000'}
-              emissiveIntensity={targetFloors.has(i + 1) ? 0.35 : 0}
+              emissive={hotFloors.has(i + 1) ? CANDIDATE_COLOR : '#000000'}
+              emissiveIntensity={hotFloors.has(i + 1) ? 0.35 : 0}
               transparent
-              opacity={0.95}
+              opacity={SLAB_OPACITY}
               roughness={0.85}
               metalness={0.05}
               depthWrite={false}
             />
           </mesh>
         ))}
-      {!isHero && shellGeom && (
+      {!slabMode && shellGeom && (
         <mesh geometry={shellGeom} ref={shellRef}>
           <meshStandardMaterial
             color={baseColor}
@@ -221,6 +228,39 @@ export default function BuildingSlice({ buildings, rooms: roomsProp }: Props) {
           />
         </mesh>
       )}
+
+      {/* 楼层号标签(各层板西端外侧,随层抬高) */}
+      {slabMode &&
+        slabGeoms.map((_, i) => {
+          const skin = getLabelSkin(`floor:${building.id}:${i + 1}`, `${i + 1}F`)
+          return (
+            <sprite
+              key={`floor_${i}`}
+              position={[floorLabelAnchor.x, i * slabH + slabH / 2 + i * EXPAND_GAP, floorLabelAnchor.z]}
+              scale={[FLOOR_LABEL_H * skin.aspect, FLOOR_LABEL_H, 1]}
+              renderOrder={11}
+            >
+              <spriteMaterial map={skin.texture} transparent depthWrite={false} toneMapped={false} />
+            </sprite>
+          )
+        })}
+
+      {/* 房间名标签(浮于房间标记上方) */}
+      {markers.map((m) => {
+        const skin = getLabelSkin(`room:${m.id}`, m.name)
+        return (
+          <sprite
+            key={`rlabel_${m.id}`}
+            position={[m.pos[0], m.pos[1] + 2.1, m.pos[2]]}
+            scale={[ROOM_LABEL_H * skin.aspect, ROOM_LABEL_H, 1]}
+            renderOrder={12}
+          >
+            <spriteMaterial map={skin.texture} transparent depthWrite={false} toneMapped={false} />
+          </sprite>
+        )
+      })}
+
+      {/* 房间标记(全部房间,实例化) */}
       {markers.length > 0 && (
         <instancedMesh
           key={markers.map((m) => m.id).join('|')}

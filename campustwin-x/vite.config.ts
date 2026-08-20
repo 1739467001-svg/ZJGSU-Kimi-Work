@@ -7,6 +7,9 @@ export default defineConfig({
   plugins: [react()],
   server: { watch: { usePolling: true, interval: 300 } },
   build: {
+    // vendor-three/echarts 为刻意拆分的长缓存大 chunk(一次性下载,长期命中),
+    // 体积警告对它们无指导意义,阈值上调至 1.2MB 消除噪音
+    chunkSizeWarningLimit: 1200,
     rollupOptions: {
       output: {
         // 手动分包:重依赖拆成独立 vendor chunk,首屏并行加载 + 长缓存友好

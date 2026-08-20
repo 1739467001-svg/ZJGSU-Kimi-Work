@@ -1,6 +1,6 @@
 // M2-D3 植被:阔叶/针叶两套低模树,InstancedMesh × 2(DrawCall = 2)
 // 点位:trees.json 733 个 [x, z, scale](局部米制,z 向南为正,scale 0.8–1.4)
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { useLayoutEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import type { TreePoint } from '../../../lib/campusData'
@@ -143,7 +143,9 @@ export default function Trees({ points, palette }: TreesProps) {
   }, [broadleaf, conifer])
 
   // 季节 → instanceColor(坑位:setColorAt 后必须 instanceColor.needsUpdate)
-  useEffect(() => {
+  // 必须用 useLayoutEffect:首帧渲染前完成着色,否则树冠顶点色(白)× 默认实例色
+  // 会以纯白闪一帧;quality 切换重挂载 instancedMesh 时同理
+  useLayoutEffect(() => {
     const base = palette?.[season] ?? seasonPalette[season]
     if (broadRef.current) applySeasonColor(broadRef.current, broadleaf.length, base)
     if (coniferRef.current) applySeasonColor(coniferRef.current, conifer.length, base)

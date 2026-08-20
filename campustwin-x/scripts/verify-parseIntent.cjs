@@ -53,6 +53,8 @@ const CASES = [
   ['来一段校训巡礼', 'campus_tour'],
   ['下一站', 'tour_control'],
   ['上一站', 'tour_control'],
+  ['暂停一下', 'tour_control'],
+  ['继续巡礼', 'tour_control'],
   // 场景导演:天气/昼夜/季节
   ['切换到夜晚场景', 'scene_director', (s) => s.scene === 'night'],
   ['看看秋天下雨的校园', 'scene_director', (s) => s.scene === 'rain'],
