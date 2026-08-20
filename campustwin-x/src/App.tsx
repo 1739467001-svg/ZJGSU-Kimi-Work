@@ -8,6 +8,8 @@ import CampusCanvas from './components/campus3d/CampusCanvas'
 import CommandPanel from './components/layout/CommandPanel'
 import QualitySwitch from './components/ui/QualitySwitch'
 import TimeSwitch from './components/ui/TimeSwitch'
+import FloorSelector from './components/ui/FloorSelector'
+import RoomInfoCard from './components/ui/RoomInfoCard'
 import { loadCampusData, type BakedBuilding, type CampusData } from './lib/campusData'
 import { loadRooms } from './lib/rooms'
 import { useCampusStore } from './store/campusStore'
@@ -139,6 +141,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const mode = useUIStore((s) => s.mode)
   const selectedBuildingId = useCampusStore((s) => s.selectedBuildingId)
+  const selectedRoomId = useCampusStore((s) => s.selectedRoomId)
 
   // 启动序列:数据 → store → Agent 处理器 → 仿真引擎(卸载时停止)
   useEffect(() => {
@@ -182,6 +185,20 @@ export default function App() {
         // 界面模式深链:?mode=immersive|workbench
         const mp = params.get('mode')
         if (mp === 'immersive' || mp === 'workbench') useUIStore.getState().setMode(mp)
+
+        // 房间级定位深链:?room=r_c305(剖切所在楼 + 选中房间 + 三段式运镜)
+        const roomId = params.get('room')
+        if (roomId) {
+          const room = rooms.find((r) => r.id === roomId || r.name === roomId)
+          if (room) {
+            // 直达深链:跳过开场运镜,避免相机所有权竞争吞掉定位飞行
+            useUIStore.getState().setOpeningPlayed(true)
+            const cs = useCampusStore.getState()
+            cs.setSlicedBuilding(room.buildingId)
+            cs.selectRoom(room.id)
+            cs.focusCamera({ type: 'room', id: room.id })
+          }
+        }
       })
       .catch((e) => setError(String(e)))
     return () => {
@@ -204,7 +221,9 @@ export default function App() {
       <QualitySwitch />
       <TimeSwitch />
       <ModeToggle />
-      {selected && <SelectedCard building={selected} />}
+      <FloorSelector />
+      {/* 房间卡与楼宇卡互斥:有房间选中时优先房间卡 */}
+      {selectedRoomId ? <RoomInfoCard /> : selected && <SelectedCard building={selected} />}
       <div style={S.hint}>拖拽旋转 · 滚轮缩放 · 点击楼宇聚焦</div>
     </div>
   )

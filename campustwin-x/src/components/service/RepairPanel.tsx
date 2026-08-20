@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { ArrowRight, CheckCircle2, Wrench } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Crosshair, Loader2, Wrench } from 'lucide-react'
 import { useCampusStore } from '../../store/campusStore'
 import type { DeviceType, Ticket, TicketStatus } from '../../lib/agentTypes'
 import { DEVICE_NAME } from '../../lib/rooms'
+
+const SPIN_CSS = '@keyframes ct-locate-spin{to{transform:rotate(360deg)}}'
 
 const DEVICE_OPTIONS = Object.entries(DEVICE_NAME) as [DeviceType, string][]
 
@@ -24,6 +26,8 @@ export function RepairPanel() {
   const advanceTicket = useCampusStore((s) => s.advanceTicket)
   const focusCamera = useCampusStore((s) => s.focusCamera)
   const selectRoom = useCampusStore((s) => s.selectRoom)
+  const setSlicedBuilding = useCampusStore((s) => s.setSlicedBuilding)
+  const locatingRoomId = useCampusStore((s) => s.locatingRoomId)
 
   const [buildingId, setBuildingId] = useState('')
   const [roomId, setRoomId] = useState('')
@@ -105,10 +109,21 @@ export function RepairPanel() {
         <div style={S.empty}>暂无工单。</div>
       ) : (
         <div style={S.list}>
-          {sorted.map((t) => <TicketRow key={t.id} ticket={t} roomName={roomName(t.roomId)}
-            buildingName={buildingNameOf(rooms.find((r) => r.id === t.roomId)?.buildingId ?? '')}
-            onAdvance={() => advanceTicket(t.id)}
-            onLocate={() => { selectRoom(t.roomId); focusCamera({ type: 'room', id: t.roomId }) }} />)}
+          {sorted.map((t) => {
+            const ticketRoom = rooms.find((r) => r.id === t.roomId)
+            return (
+              <TicketRow key={t.id} ticket={t} roomName={roomName(t.roomId)}
+                buildingName={buildingNameOf(ticketRoom?.buildingId ?? '')}
+                locating={locatingRoomId === t.roomId}
+                onAdvance={() => advanceTicket(t.id)}
+                onLocate={() => {
+                  // M4 点对点定位:选中房间 + 剖切所在楼 + 三段式运镜(CameraDirector 兜底也会切)
+                  selectRoom(t.roomId)
+                  if (ticketRoom) setSlicedBuilding(ticketRoom.buildingId)
+                  focusCamera({ type: 'room', id: t.roomId })
+                }} />
+            )
+          })}
         </div>
       )}
     </div>
@@ -119,22 +134,29 @@ function TicketRow(props: {
   ticket: Ticket
   roomName: string
   buildingName: string
+  locating: boolean
   onAdvance: () => void
   onLocate: () => void
 }) {
-  const { ticket: t, roomName, buildingName, onAdvance, onLocate } = props
+  const { ticket: t, roomName, buildingName, locating, onAdvance, onLocate } = props
   const meta = STATUS_META[t.status]
   const deviceLabel = t.deviceId
     ? (DEVICE_NAME[t.deviceId as DeviceType] ?? t.deviceId)
     : null
   return (
-    <div style={S.ticket}>
+    <div style={{ ...S.ticket, borderColor: locating ? '#e8b84b' : '#2a323b' }}>
+      <style>{SPIN_CSS}</style>
       <div style={S.ticketHead}>
         <span style={{ ...S.badge, color: meta.color, borderColor: `${meta.color}66` }}>{meta.name}</span>
         <span style={{ opacity: 0.45, fontSize: 11, marginLeft: 'auto' }}>{t.id}</span>
       </div>
-      <button type="button" onClick={onLocate} style={S.ticketLoc}>
-        {buildingName} · {roomName}{deviceLabel ? ` · ${deviceLabel}` : ''}
+      <button type="button" onClick={onLocate} style={{ ...S.ticketLoc, color: locating ? '#e8b84b' : '#3aa7ff' }}>
+        {locating ? (
+          <Loader2 size={12} style={{ animation: 'ct-locate-spin 0.9s linear infinite', flexShrink: 0 }} />
+        ) : (
+          <Crosshair size={12} style={{ flexShrink: 0 }} />
+        )}
+        {locating ? '正在定位:' : ''}{buildingName} · {roomName}{deviceLabel ? ` · ${deviceLabel}` : ''}
       </button>
       <div style={S.ticketDesc}>{t.desc}</div>
       <div style={S.ticketFoot}>
@@ -172,7 +194,7 @@ const S: Record<string, CSSProperties> = {
   ticket: { background: '#161b21', border: '1px solid #2a323b', borderRadius: 8, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 5 },
   ticketHead: { display: 'flex', alignItems: 'center', gap: 8 },
   badge: { fontSize: 11, border: '1px solid', borderRadius: 4, padding: '1px 6px' },
-  ticketLoc: { background: 'none', border: 'none', padding: 0, textAlign: 'left', color: '#3aa7ff', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
+  ticketLoc: { background: 'none', border: 'none', padding: 0, textAlign: 'left', color: '#3aa7ff', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 },
   ticketDesc: { fontSize: 12.5, opacity: 0.85, lineHeight: 1.5 },
   ticketFoot: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
   advanceBtn: {

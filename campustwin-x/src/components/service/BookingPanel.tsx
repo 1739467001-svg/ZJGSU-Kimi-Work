@@ -5,6 +5,7 @@ import type { LucideIcon } from 'lucide-react'
 import { useCampusStore } from '../../store/campusStore'
 import type { Booking, DeviceType, Room } from '../../lib/agentTypes'
 import { DEVICE_NAME } from '../../lib/rooms'
+import { LocateButton } from './LocateButton'
 
 const DEVICE_ICON: Record<DeviceType, LucideIcon> = {
   projector: Projector,
@@ -30,6 +31,7 @@ export function BookingPanel() {
   const buildings = useCampusStore((s) => s.buildings)
   const highlightedRoomIds = useCampusStore((s) => s.highlightedRoomIds)
   const selectedRoomId = useCampusStore((s) => s.selectedRoomId)
+  const locatingRoomId = useCampusStore((s) => s.locatingRoomId)
   const selectRoom = useCampusStore((s) => s.selectRoom)
   const focusCamera = useCampusStore((s) => s.focusCamera)
   const createBooking = useCampusStore((s) => s.createBooking)
@@ -83,15 +85,26 @@ export function BookingPanel() {
             {candidates.map((r) => {
               const active = r.id === selectedRoomId
               return (
-                <button
+                <div
                   key={r.id}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => pick(r)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') pick(r)
+                  }}
                   style={{ ...S.card, borderColor: active ? '#e8b84b' : '#2a323b' }}
                 >
                   <div style={S.cardHead}>
                     <span style={S.cardName}>{r.name}</span>
-                    <span style={{ ...S.dot, background: STATUS_COLOR[r.status] }} title={STATUS_NAME[r.status]} />
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <LocateButton
+                        locating={locatingRoomId === r.id}
+                        onClick={() => pick(r)}
+                        title={`定位到 ${r.name}`}
+                      />
+                      <span style={{ ...S.dot, background: STATUS_COLOR[r.status] }} title={STATUS_NAME[r.status]} />
+                    </span>
                   </div>
                   <div style={S.cardSub}>
                     {buildingName(r.buildingId)} · {r.floor}F · {STATUS_NAME[r.status]}
@@ -107,7 +120,7 @@ export function BookingPanel() {
                       )
                     })}
                   </div>
-                </button>
+                </div>
               )
             })}
           </div>

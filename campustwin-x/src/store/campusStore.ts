@@ -37,6 +37,8 @@ interface CampusState {
   heatMode: HeatMode
   cameraFocus: CameraFocus | null
   slicedBuildingId: string | null
+  /** 正在进行"点对点定位"运镜的房间 id(三段式运镜进行中非空,供 UI 显示"正在定位"态) */
+  locatingRoomId: string | null
 
   setBuildings: (b: BakedBuilding[]) => void
   setRooms: (r: Room[]) => void
@@ -60,6 +62,7 @@ interface CampusState {
   setHeatMode: (m: HeatMode) => void
   focusCamera: (f: CameraFocus | null) => void
   setSlicedBuilding: (id: string | null) => void
+  setLocatingRoom: (id: string | null) => void
 }
 
 export const useCampusStore = create<CampusState>()((set, get) => {
@@ -71,7 +74,7 @@ export const useCampusStore = create<CampusState>()((set, get) => {
     highlightedBuildingIds: [], highlightedRoomIds: [],
     alarmRoomId: null, alarmBuildingId: null, scanTrigger: 0,
     activePanel: 'empty', sceneMode: 'idle', heatMode: 'none',
-    cameraFocus: null, slicedBuildingId: null,
+    cameraFocus: null, slicedBuildingId: null, locatingRoomId: null,
 
     setBuildings: (buildings) => set({ buildings }),
     setRooms: (rooms) => set({ rooms }),
@@ -129,7 +132,14 @@ export const useCampusStore = create<CampusState>()((set, get) => {
     setActivePanel: (activePanel) => set({ activePanel }),
     setSceneMode: (sceneMode) => set({ sceneMode }),
     setHeatMode: (heatMode) => set({ heatMode }),
-    focusCamera: (cameraFocus) => set({ cameraFocus }),
+    focusCamera: (cameraFocus) =>
+      set({
+        cameraFocus,
+        // 房间级定位 → 进入"正在定位"态;清空/切其他类型 → 退出
+        locatingRoomId:
+          cameraFocus && cameraFocus.type === 'room' && cameraFocus.id ? cameraFocus.id : null,
+      }),
     setSlicedBuilding: (slicedBuildingId) => set({ slicedBuildingId }),
+    setLocatingRoom: (locatingRoomId) => set({ locatingRoomId }),
   }
 })

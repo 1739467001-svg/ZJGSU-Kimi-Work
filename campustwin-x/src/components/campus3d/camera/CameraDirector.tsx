@@ -5,8 +5,9 @@ import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useCampusStore } from '../../../store/campusStore'
-import type { CameraFocus } from '../../../lib/agentTypes'
+import type { CameraFocus, Room } from '../../../lib/agentTypes'
 import type { BakedBuilding } from '../../../lib/campusData'
+import { computeFloorLayout } from '../../../lib/floorLayout'
 import type { CameraBusRef, OrbitControlsRef } from './CameraRig'
 
 // ---------- 自写数学工具(不用库) ----------
@@ -46,10 +47,24 @@ const CAMPUS_CENTER = new THREE.Vector2(40, -80)
 const DEG = Math.PI / 180
 const BUILDING_DIST = 120
 const BUILDING_PITCH = 35 * DEG
-const ROOM_DIST = 45
-const ROOM_PITCH = 30 * DEG
 const ROUTE_ALTITUDE = 90
 const ROUTE_SPEED = 60 // m/s
+
+// ---------- M4 房间级三段式定位运镜参数 ----------
+/** 与 BuildingSlice 的爆炸展开约定一致(EXPAND_GAP=2.2,他人组件,此处只读镜像) */
+const SLICE_EXPAND_GAP = 2.2
+/** 段①:飞向目标楼上空(楼宇全貌)时长 */
+const LOCATE_S1_DUR = 1.2
+/** 段②:悬停至建筑西侧偏上 45° 俯瞰位时长 */
+const LOCATE_S2_DUR = 1.0
+/** 段②后等待分层爆炸动画沉降时长 */
+const LOCATE_SETTLE_DUR = 1.0
+/** 段③:下降到目标楼层、推近房间特写时长 */
+const LOCATE_S3_DUR = 1.3
+/** 特写距离 = 房间面宽 × 该倍数(限幅 12~48m) */
+const LOCATE_CLOSEUP_MULT = 3.5
+/** 特写俯角 */
+const LOCATE_CLOSEUP_PITCH = 40 * DEG
 
 // ---------- 道路数据(route 运镜用,本地 public 数据,懒加载+缓存) ----------
 interface RoadShape { id: string; points: [number, number][] }
@@ -80,7 +95,24 @@ interface RouteFlight {
   duration: number
   curve: THREE.CatmullRomCurve3
 }
-type Flight = PointFlight | RouteFlight
+/** 序列运镜的一段;toPos 为 null 表示悬停段(保持上一目标,等待分层沉降) */
+interface SeqLeg {
+  t: number
+  duration: number
+  fromPos: THREE.Vector3
+  fromTgt: THREE.Vector3
+  toPos: THREE.Vector3 | null
+  toTgt: THREE.Vector3 | null
+  onStart?: () => void
+}
+/** 房间级三段式定位运镜 */
+interface SeqFlight {
+  kind: 'seq'
+  roomId: string
+  i: number
+  legs: SeqLeg[]
+}
+type Flight = PointFlight | RouteFlight | SeqFlight
 
 export interface CameraDirectorProps {
   bus: CameraBusRef
@@ -114,6 +146,87 @@ function overviewFlight(fromPos: THREE.Vector3, fromTgt: THREE.Vector3, duration
   }
 }
 
+/**
+ * M4 房间级三段式定位运镜:
+ * ① 楼上空楼宇全貌(1.2s)→ ② 西侧偏上 45° 俯瞰位 + 触发分层剖切(1.0s)
+ * → 悬停等爆炸动画沉降(1.0s)→ ③ 下降到目标楼层,推近房间单元格斜上方特写(1.3s)。
+ * 全程 easeInOutCubic;坐标 = floorLayout 单元格(局部)+ building.center。
+ */
+function roomLocateFlight(
+  room: Room,
+  b: BakedBuilding,
+  buildingRooms: Room[],
+  fromPos: THREE.Vector3,
+  fromTgt: THREE.Vector3,
+  ensureSlice: () => void,
+): SeqFlight {
+  const [bx, bz] = b.center
+  let minX = Infinity
+  let maxX = -Infinity
+  let minZ = Infinity
+  let maxZ = -Infinity
+  for (const [fx, fz] of b.footprint) {
+    if (fx < minX) minX = fx
+    if (fx > maxX) maxX = fx
+    if (fz < minZ) minZ = fz
+    if (fz > maxZ) maxZ = fz
+  }
+  const maxDim = Math.max(maxX - minX, maxZ - minZ, b.height, 12)
+  const levels = Math.max(b.levels, 1)
+  const slabH = b.height / levels
+  // 剖切展开后,目标层楼板顶面高度(与 BuildingSlice floorLift 同一约定)
+  const fIdx = Math.min(Math.max(room.floor, 1), levels)
+  const floorY = (fIdx - 1) * (slabH + SLICE_EXPAND_GAP) + slabH
+
+  // M4 契约:floorLayout 单元格(局部米制)→ 世界坐标
+  const cell = computeFloorLayout(b, buildingRooms, room.floor).cells.find((c) => c.roomId === room.id) ?? null
+  const cx = bx + (cell ? cell.x : 0)
+  const cz = bz + (cell ? cell.z : 0)
+  const faceW = cell ? Math.max(cell.w, cell.d) : 7.2
+
+  // 特写机位方位:从房门(走廊侧)斜上方看进房间;门向量退化时取西侧
+  const doorDir = new THREE.Vector2(cell ? cell.door.x - cell.x : -1, cell ? cell.door.z - cell.z : 0)
+  if (doorDir.lengthSq() < 1e-4) doorDir.set(-1, 0)
+  doorDir.normalize()
+
+  // 段① 目标楼上空,俯瞰楼宇全貌
+  const s1Pos = new THREE.Vector3(bx, b.height + maxDim * 1.25 + 16, bz + maxDim * 0.14)
+  const s1Tgt = new THREE.Vector3(bx, b.height * 0.45, bz)
+  // 段② 建筑西侧偏上 45° 俯瞰位(水平距离=垂直高差 → 俯角 45°)
+  const hd = maxDim * 1.5
+  const s2Pos = new THREE.Vector3(bx - hd, b.height * 0.5 + hd, bz)
+  const s2Tgt = new THREE.Vector3(bx, b.height * 0.5, bz)
+  // 段③ 房间单元格特写:距离≈面宽 3.5 倍,注视点=cell 中心
+  const dist = Math.min(48, Math.max(12, faceW * LOCATE_CLOSEUP_MULT))
+  const s3Tgt = new THREE.Vector3(cx, floorY, cz)
+  const s3Pos = new THREE.Vector3(
+    cx + doorDir.x * dist * Math.cos(LOCATE_CLOSEUP_PITCH),
+    floorY + dist * Math.sin(LOCATE_CLOSEUP_PITCH),
+    cz + doorDir.y * dist * Math.cos(LOCATE_CLOSEUP_PITCH),
+  )
+
+  const leg = (
+    duration: number,
+    fp: THREE.Vector3,
+    ft: THREE.Vector3,
+    tp: THREE.Vector3 | null,
+    tt: THREE.Vector3 | null,
+    onStart?: () => void,
+  ): SeqLeg => ({ t: 0, duration, fromPos: fp, fromTgt: ft, toPos: tp, toTgt: tt, onStart })
+
+  return {
+    kind: 'seq',
+    roomId: room.id,
+    i: 0,
+    legs: [
+      leg(LOCATE_S1_DUR, fromPos, fromTgt, s1Pos, s1Tgt),
+      leg(LOCATE_S2_DUR, s1Pos, s1Tgt, s2Pos, s2Tgt, ensureSlice),
+      leg(LOCATE_SETTLE_DUR, s2Pos, s2Tgt, null, null), // 悬停,等分层爆炸动画沉降
+      leg(LOCATE_S3_DUR, s2Pos, s2Tgt, s3Pos, s3Tgt),
+    ],
+  }
+}
+
 export default function CameraDirector({ bus, controlsRef }: CameraDirectorProps) {
   const camera = useThree((s) => s.camera)
   const cameraFocus = useCampusStore((s) => s.cameraFocus)
@@ -130,6 +243,15 @@ export default function CameraDirector({ bus, controlsRef }: CameraDirectorProps
     if (c) c.enabled = false
     flightRef.current = f
     return true
+  }
+
+  /** 房间定位序列:导演已在飞(如上一次定位)时直接抢占重定向;否则走正常仲裁 */
+  const tryStartSeq = (f: SeqFlight) => {
+    if (bus.current.owner === 'director') {
+      flightRef.current = f
+      return true
+    }
+    return tryStart(f)
   }
 
   const currentAnchors = () => {
@@ -171,19 +293,19 @@ export default function CameraDirector({ bus, controlsRef }: CameraDirectorProps
       const room = state.rooms.find((x) => x.id === focus.id)
       const b = room ? state.buildings.find((x) => x.id === room.buildingId) : undefined
       if (room && b) {
-        const hint = room.positionHint
-        const tx = b.center[0] + (hint ? hint[0] : 0)
-        const ty = (hint ? hint[1] : b.height * 0.5) + 2
-        const tz = b.center[1] + (hint ? hint[2] : 0)
-        const dir = approachDir(tx, tz)
-        const target = new THREE.Vector3(tx, Math.max(ty, 4), tz)
-        const pos = new THREE.Vector3(
-          tx + dir.x * ROOM_DIST,
-          target.y + ROOM_DIST * Math.tan(ROOM_PITCH),
-          tz + dir.y * ROOM_DIST,
-        )
-        if (tryStart({ kind: 'point', t: 0, duration: 1.8, fromPos: a.pos, fromTgt: a.tgt, toPos: pos, toTgt: target })) finish()
-      } else if (tryStart(overviewFlight(a.pos, a.tgt))) finish()
+        const buildingRooms = state.rooms.filter((r) => r.buildingId === b.id)
+        // 段②开始时确保该楼已分层剖切(他人组件 BuildingSlice 负责展开动画)
+        const ensureSlice = () => {
+          const s = useCampusStore.getState()
+          if (s.slicedBuildingId !== b.id) s.setSlicedBuilding(b.id)
+        }
+        const f = roomLocateFlight(room, b, buildingRooms, a.pos, a.tgt, ensureSlice)
+        // 序列期间不调 finish():locatingRoomId 需保留到运镜结束/被打断时统一清除
+        if (tryStartSeq(f)) return
+      } else {
+        tryStart(overviewFlight(a.pos, a.tgt))
+      }
+      finish() // 数据缺失或总线被占:清掉"正在定位"态,避免 UI 卡 loading
       return
     }
     // route:沿道路曲线飞行(本地 roads.json,懒加载)
@@ -210,10 +332,58 @@ export default function CameraDirector({ bus, controlsRef }: CameraDirectorProps
     if (!f) return
     // 被打断(用户输入/首屏抢占):放弃飞行,柔和停留在当前机位
     if (bus.current.owner !== 'director') {
+      if (f.kind === 'seq') useCampusStore.getState().focusCamera(null) // 定位中断 → 清"正在定位"态
       flightRef.current = null
       return
     }
     const c = controlsRef.current
+
+    // 房间级三段式定位序列
+    if (f.kind === 'seq') {
+      const leg = f.legs[f.i]
+      leg.t = clamp01(leg.t + dt / leg.duration)
+      if (leg.toPos && leg.toTgt) {
+        const e = easeInOutCubic(leg.t)
+        goalPos.current.set(
+          lerp(leg.fromPos.x, leg.toPos.x, e),
+          lerp(leg.fromPos.y, leg.toPos.y, e),
+          lerp(leg.fromPos.z, leg.toPos.z, e),
+        )
+        goalTgt.current.set(
+          lerp(leg.fromTgt.x, leg.toTgt.x, e),
+          lerp(leg.fromTgt.y, leg.toTgt.y, e),
+          lerp(leg.fromTgt.z, leg.toTgt.z, e),
+        )
+      }
+      // 悬停段:goal 保持上一段目标,相机继续阻尼收敛
+      dampV3(camera.position, goalPos.current, 6, dt)
+      if (c) {
+        dampV3(c.target, goalTgt.current, 6, dt)
+        c.update()
+      } else {
+        camera.lookAt(goalTgt.current)
+      }
+      const isLast = f.i === f.legs.length - 1
+      const arrived = leg.toPos
+        ? camera.position.distanceTo(goalPos.current) < (isLast ? 1.0 : 2.5)
+        : true
+      if (leg.t >= 1 && arrived) {
+        if (!isLast) {
+          f.i += 1
+          f.legs[f.i].onStart?.()
+        } else {
+          flightRef.current = null
+          bus.current.owner = null
+          if (c) {
+            c.enabled = true
+            c.update()
+          }
+          useCampusStore.getState().focusCamera(null) // 定位完成 → 清"正在定位"态
+        }
+      }
+      return
+    }
+
     f.t = clamp01(f.t + dt / f.duration)
 
     if (f.kind === 'point') {

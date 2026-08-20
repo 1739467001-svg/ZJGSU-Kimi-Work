@@ -2,17 +2,23 @@ import { useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { ChevronRight, CircleDot, Flag, Navigation, Route } from 'lucide-react'
 import { useCampusStore } from '../../store/campusStore'
+import { LocateButton } from './LocateButton'
 
 /**
  * 导航面板:起终点输入(实名楼宇候选)+ 路径步骤展示。
  * 路径计算由 导航Agent 负责,本面板通过 submitCommand 发起指令并展示 Agent 返回的步骤文本。
+ * M4:目的地若是具体房间(rooms 数据可查到),导航结果提供「定位到房间」点对点运镜入口。
  */
 export function NavigationPanel() {
   const buildings = useCampusStore((s) => s.buildings)
+  const rooms = useCampusStore((s) => s.rooms)
   const messages = useCampusStore((s) => s.messages)
   const sceneMode = useCampusStore((s) => s.sceneMode)
   const submitCommand = useCampusStore((s) => s.submitCommand)
   const focusCamera = useCampusStore((s) => s.focusCamera)
+  const selectRoom = useCampusStore((s) => s.selectRoom)
+  const setSlicedBuilding = useCampusStore((s) => s.setSlicedBuilding)
+  const locatingRoomId = useCampusStore((s) => s.locatingRoomId)
 
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
@@ -22,6 +28,28 @@ export function NavigationPanel() {
     () => buildings.filter((b) => b.name).map((b) => b.name as string).sort((a, b) => a.localeCompare(b, 'zh')),
     [buildings],
   )
+
+  // 目的地房间匹配:精确同名优先,其次唯一/首个包含匹配(如「C302」「国际会议中心101」)
+  const destRoom = useMemo(() => {
+    const q = end.trim()
+    if (q.length < 2) return null
+    const exact = rooms.filter((r) => r.name === q)
+    if (exact.length > 0) return exact[0]
+    const partial = rooms.filter((r) => r.name.includes(q))
+    return partial.length > 0 ? partial[0] : null
+  }, [rooms, end])
+
+  const destBuildingName = destRoom
+    ? (buildings.find((b) => b.id === destRoom.buildingId)?.name ?? destRoom.buildingId)
+    : null
+
+  // 房间级目的地定位:选中 + 剖切所在楼 + 三段式运镜
+  const locateDestRoom = () => {
+    if (!destRoom) return
+    selectRoom(destRoom.id)
+    setSlicedBuilding(destRoom.buildingId)
+    focusCamera({ type: 'room', id: destRoom.id })
+  }
 
   // 最新一条 Agent 导航回复 → 拆分为步骤
   const steps = useMemo(() => {
@@ -59,6 +87,7 @@ export function NavigationPanel() {
         </label>
         <datalist id="ctwin-places">
           {placeNames.map((n) => <option key={n} value={n} />)}
+          {rooms.map((r) => <option key={r.id} value={r.name} />)}
         </datalist>
         <button type="button" onClick={() => void go()} disabled={pending || !start.trim() || !end.trim()}
           style={{ ...S.primaryBtn, opacity: !pending && start.trim() && end.trim() ? 1 : 0.4 }}>
@@ -86,6 +115,21 @@ export function NavigationPanel() {
             <Route size={13} /> 镜头查看路径
           </button>
         </>
+      )}
+
+      {/* M4:目的地命中具体房间(rooms 可查)→ 提供点对点「定位到房间」入口;
+          房间级目的地 Agent 可能只识别到楼宇或无法识别,故该入口独立于路径结果常驻 */}
+      {destRoom && (
+        <div style={S.destRoomRow}>
+          <span style={S.destRoomHint}>
+            目的地房间:{destBuildingName} · {destRoom.name}({destRoom.floor}F)
+          </span>
+          <LocateButton
+            locating={locatingRoomId === destRoom.id}
+            onClick={locateDestRoom}
+            label={`定位到房间 ${destRoom.name}`}
+          />
+        </div>
       )}
     </div>
   )
@@ -125,4 +169,9 @@ const S: Record<string, CSSProperties> = {
   },
   stepText: { fontSize: 12.5, lineHeight: 1.5, flex: 1 },
   stepArrow: { opacity: 0.35, flexShrink: 0 },
+  destRoomRow: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+    background: '#161b21', border: '1px solid #2a323b', borderRadius: 8, padding: '8px 10px',
+  },
+  destRoomHint: { fontSize: 12, opacity: 0.75, lineHeight: 1.5, flex: 1 },
 }
