@@ -17,6 +17,7 @@ import RoomInfoCard from './components/ui/RoomInfoCard'
 import { useIsMobile, useIsTablet } from './components/ui/useMediaQuery'
 import { useSidebarCollapsed } from './components/ui/useSidebarCollapsed'
 import { loadCampusData, type BakedBuilding, type CampusData } from './lib/campusData'
+import { getBuildingIntro } from './lib/buildingIntro'
 import { loadRooms } from './lib/rooms'
 import { useCampusStore } from './store/campusStore'
 import { useUIStore } from './store/uiStore'
@@ -39,7 +40,22 @@ const ZONE_NAME: Record<string, string> = {
 }
 const FEATURE_NAME: Record<string, string> = {
   teaching: '教学楼', college: '学院楼', library: '图书馆', admin: '行政', venue: '场馆',
-  sport: '体育', dorm: '公寓', canteen: '食堂', service: '配套', unknown: '其他',
+  sport: '体育', dorm: '公寓', canteen: '食堂', service: '配套', landmark: '地标', unknown: '其他',
+}
+
+/** 双门是 landmark 无 building 记录:点击后合成伪楼宇卡片(简介走 buildingIntro 的 gate_* 条目) */
+const GATE_PSEUDO: Record<string, { height: number }> = {
+  gate_south: { height: 12 }, // 飞翔门翼尖约 8–12m
+  gate_north: { height: 5 }, // 凯旋门门高 5 米多
+}
+function gateAsBuilding(data: CampusData, id: string): BakedBuilding | null {
+  const lm = data.landmarks.find((l) => l.id === id)
+  if (!lm) return null
+  return {
+    id: lm.id, name: lm.name, alias: [], feature: 'landmark', lod: 0,
+    levels: 1, height: GATE_PSEUDO[id]?.height ?? 10, hero: true,
+    zone: 'teaching', footprint: [], center: lm.position,
+  }
 }
 
 /** 模式切换(沉浸 / 工作台),悬浮于 3D 视口顶中;手机端避开品牌条下移 */
@@ -123,7 +139,28 @@ function CommandCapsule({ onSubmitted }: { onSubmitted?: () => void }) {
 function SelectedCard({ building }: { building: BakedBuilding }) {
   const sliced = useCampusStore((s) => s.slicedBuildingId === building.id)
   const setSlicedBuilding = useCampusStore((s) => s.setSlicedBuilding)
+  const highlightRooms = useCampusStore((s) => s.highlightRooms)
+  const focusCamera = useCampusStore((s) => s.focusCamera)
+  const rooms = useCampusStore((s) => s.rooms)
   const isMobile = useIsMobile()
+
+  // 可预约房间口径与预约面板一致:meeting 且 free
+  const bookable = rooms.filter(
+    (r) => r.buildingId === building.id && r.type === 'meeting' && r.status === 'free',
+  )
+
+  /** 分层展开:剖切该楼 + 染蓝全部可预约房间 + 相机聚焦;已剖切则收起并清高亮 */
+  const toggleSlice = () => {
+    if (sliced) {
+      setSlicedBuilding(null)
+      highlightRooms([])
+    } else {
+      setSlicedBuilding(building.id)
+      if (bookable.length > 0) highlightRooms(bookable.map((r) => r.id))
+      focusCamera({ type: 'building', id: building.id })
+    }
+  }
+
   return (
     <div style={isMobile ? S.cardMobile : S.card}>
       <div style={{ fontSize: 17, fontWeight: 700 }}>{building.name ?? '未命名楼宇'}</div>
@@ -134,12 +171,22 @@ function SelectedCard({ building }: { building: BakedBuilding }) {
         {building.hero ? ' · 地标精模' : ''}
       </div>
       <div style={S.row}>层数:{building.levels} · 高度:{building.height}m</div>
-      {sliced && (
+      <div style={S.intro}>{getBuildingIntro(building)}</div>
+      {bookable.length > 0 && (
         <div style={S.row}>
+          可预约房间:
+          <span style={{ color: '#3fd08c', fontWeight: 600 }}>{bookable.length} 间</span>
+          (会议室 · 当前空闲)
+        </div>
+      )}
+      {building.levels > 1 && (
+        <button type="button" onClick={toggleSlice} style={S.cardBtn}>
+          {sliced ? '收起剖切' : `分层展开(${building.levels} 层)`}
+        </button>
+      )}
+      {sliced && (
+        <div style={{ ...S.row, opacity: 0.6 }}>
           分层视图:逐层展开,显示各层房间位置(点击空白处亦可退出)
-          <button type="button" onClick={() => setSlicedBuilding(null)} style={S.cardBtn}>
-            退出分层
-          </button>
         </div>
       )}
     </div>
@@ -251,7 +298,8 @@ export default function App() {
 
   const namedCount = data.buildings.filter((b) => b.name).length
   const selected = selectedBuildingId
-    ? (data.buildings.find((b) => b.id === selectedBuildingId) ?? null)
+    ? (data.buildings.find((b) => b.id === selectedBuildingId) ??
+      (selectedBuildingId in GATE_PSEUDO ? gateAsBuilding(data, selectedBuildingId) : null))
     : null
 
   /** 沉浸胶囊提交后:手机/平板弹出指令台抽屉;桌面若左栏收起则自动展开,确保用户看到回复 */
@@ -460,8 +508,13 @@ const S: Record<string, CSSProperties> = {
     padding: '13px 15px', boxShadow: '0 8px 30px #00000088', zIndex: 15,
   },
   row: { fontSize: 12.5, marginTop: 6, opacity: 0.85 },
+  intro: {
+    fontSize: 12.5, marginTop: 8, paddingTop: 8, opacity: 0.75, lineHeight: 1.6,
+    borderTop: '1px solid #2a323b',
+  },
   cardBtn: {
-    display: 'block', marginTop: 8, padding: '5px 12px', fontSize: 12, cursor: 'pointer',
+    display: 'block', marginTop: 10, padding: '6px 12px', fontSize: 12.5, cursor: 'pointer',
+    width: '100%', textAlign: 'center', fontFamily: 'inherit',
     background: '#3aa7ff22', color: '#3aa7ff', border: '1px solid #3aa7ff55', borderRadius: 6,
   },
   modeToggle: {

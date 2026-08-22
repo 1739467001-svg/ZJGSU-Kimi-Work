@@ -59,7 +59,7 @@ function SceneContent({ data }: { data: CampusData }) {
   const onSelect = (b: BakedBuilding) => {
     selectBuilding(b.id)
     focusCamera({ type: 'building', id: b.id })
-    // 分层试点期间:点击其他(灰盒)楼即退出信电楼分层视图
+    // 切换选中其他楼(灰盒或 hero 精模)即退出旧楼的分层视图
     if (slicedId) setSlicedBuilding(null)
   }
 
@@ -81,8 +81,13 @@ function SceneContent({ data }: { data: CampusData }) {
         nightFactor={nightFactor}
         onSelect={onSelect}
       />
-      {/* L0 地标精模:文体中心 / 综合大楼 / 图书馆 / 双门 */}
-      <HeroBuildings buildings={visible} landmarks={data.landmarks} nightFactor={nightFactor} />
+      {/* L0 地标精模:文体中心 / 综合大楼 / 图书馆 / 信电楼 / 双门(均可点击选中) */}
+      <HeroBuildings
+        buildings={visible}
+        landmarks={data.landmarks}
+        nightFactor={nightFactor}
+        onSelect={onSelect}
+      />
       {/* 植被 + 楼名名牌 */}
       <Vegetation points={data.trees} />
       <SceneLabels buildings={visible} />
