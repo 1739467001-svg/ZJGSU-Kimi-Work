@@ -1,15 +1,21 @@
 // 商大元境 CampusTwin X —— 应用壳:
 // 沉浸模式(全屏 3D + 品牌条 + 指令胶囊) / 工作台模式(指挥台 | 3D | 服务台)
 // 启动时:装载数据 → 注入 Agent 指令处理器 → 拉起仿真引擎。
+// 响应式(见 components/ui/useMediaQuery.ts):
+//   手机 ≤768px —— 工作台抽屉化(3D 全屏 + 指令台/服务台底部抽屉 + 浮动按钮);
+//   平板 769–1024px —— 隐藏左栏,指挥台变左侧抽屉,服务台保留右栏;
+//   桌面 >1024px —— 原三栏布局不变。
 import { lazy, Suspense, useEffect, useState } from 'react'
 import type { CSSProperties, KeyboardEvent } from 'react'
-import { SendHorizontal } from 'lucide-react'
+import { LayoutDashboard, MessageSquare, SendHorizontal } from 'lucide-react'
 import CampusCanvas from './components/campus3d/CampusCanvas'
 import CommandPanel from './components/layout/CommandPanel'
 import QualitySwitch from './components/ui/QualitySwitch'
 import TimeSwitch from './components/ui/TimeSwitch'
 import FloorSelector from './components/ui/FloorSelector'
 import RoomInfoCard from './components/ui/RoomInfoCard'
+import { useIsMobile, useIsTablet } from './components/ui/useMediaQuery'
+import { useSidebarCollapsed } from './components/ui/useSidebarCollapsed'
 import { loadCampusData, type BakedBuilding, type CampusData } from './lib/campusData'
 import { loadRooms } from './lib/rooms'
 import { useCampusStore } from './store/campusStore'
@@ -36,12 +42,19 @@ const FEATURE_NAME: Record<string, string> = {
   sport: '体育', dorm: '公寓', canteen: '食堂', service: '配套', unknown: '其他',
 }
 
-/** 模式切换(沉浸 / 工作台),悬浮于 3D 视口顶中 */
+/** 模式切换(沉浸 / 工作台),悬浮于 3D 视口顶中;手机端避开品牌条下移 */
 function ModeToggle() {
   const mode = useUIStore((s) => s.mode)
   const setMode = useUIStore((s) => s.setMode)
+  const isMobile = useIsMobile()
+  const wrap: CSSProperties = isMobile
+    ? {
+        ...S.modeToggle,
+        top: mode === 'immersive' ? 'calc(44px + var(--sat, 0px))' : 'calc(10px + var(--sat, 0px))',
+      }
+    : S.modeToggle
   return (
-    <div style={S.modeToggle}>
+    <div style={wrap}>
       {(['immersive', 'workbench'] as const).map((m) => (
         <button
           key={m}
@@ -57,9 +70,10 @@ function ModeToggle() {
 }
 
 /** 沉浸模式指令胶囊:首次下达指令后自动切入工作台 */
-function CommandCapsule() {
+function CommandCapsule({ onSubmitted }: { onSubmitted?: () => void }) {
   const submitCommand = useCampusStore((s) => s.submitCommand)
   const setMode = useUIStore((s) => s.setMode)
+  const isMobile = useIsMobile()
   const [text, setText] = useState('')
   const [pending, setPending] = useState(false)
 
@@ -70,6 +84,7 @@ function CommandCapsule() {
     setText('')
     void submitCommand(t).finally(() => setPending(false))
     setMode('workbench')
+    onSubmitted?.()
   }
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
@@ -78,13 +93,17 @@ function CommandCapsule() {
     }
   }
   return (
-    <div style={S.capsule}>
+    <div style={isMobile ? S.capsuleMobile : S.capsule}>
       <input
         style={S.capsuleInput}
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={onKeyDown}
-        placeholder="一句话指挥校园:帮我找一个 10 人会议室 / 图书馆还有座吗 / 带我逛校园…"
+        placeholder={
+          isMobile
+            ? '一句话指挥校园:找会议室 / 报修 / 逛校园…'
+            : '一句话指挥校园:帮我找一个 10 人会议室 / 图书馆还有座吗 / 带我逛校园…'
+        }
         aria-label="指挥指令输入"
       />
       <button
@@ -100,12 +119,13 @@ function CommandCapsule() {
   )
 }
 
-/** 选中楼宇信息卡(两种模式共用,浮于 3D 视口右下) */
+/** 选中楼宇信息卡(两种模式共用,浮于 3D 视口右下;手机端贴底全宽) */
 function SelectedCard({ building }: { building: BakedBuilding }) {
   const sliced = useCampusStore((s) => s.slicedBuildingId === building.id)
   const setSlicedBuilding = useCampusStore((s) => s.setSlicedBuilding)
+  const isMobile = useIsMobile()
   return (
-    <div style={S.card}>
+    <div style={isMobile ? S.cardMobile : S.card}>
       <div style={{ fontSize: 17, fontWeight: 700 }}>{building.name ?? '未命名楼宇'}</div>
       {building.alias.length > 0 && <div style={S.row}>别名:{building.alias.join('、')}</div>}
       <div style={S.row}>分区:{ZONE_NAME[building.zone] ?? building.zone}</div>
@@ -136,12 +156,31 @@ function BootLoading() {
   )
 }
 
+type DrawerKind = 'none' | 'command' | 'service'
+
 export default function App() {
   const [data, setData] = useState<CampusData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const mode = useUIStore((s) => s.mode)
   const selectedBuildingId = useCampusStore((s) => s.selectedBuildingId)
   const selectedRoomId = useCampusStore((s) => s.selectedRoomId)
+  const activePanel = useCampusStore((s) => s.activePanel)
+  const isMobile = useIsMobile()
+  const isTablet = useIsTablet()
+  /** 手机:指令台/服务台底部抽屉;平板:仅指令台侧边抽屉;桌面:不用抽屉 */
+  const [drawer, setDrawer] = useState<DrawerKind>('none')
+  /** 桌面端左栏(指挥台)开合,localStorage 持久化(右栏状态由 ServiceDesk 自管) */
+  const [leftCollapsed, setLeftCollapsed] = useSidebarCollapsed('left')
+
+  // 移动端:Agent 指令打开业务面板(activePanel 变化)时,自动弹出服务台抽屉让用户看到结果
+  useEffect(() => {
+    if (isMobile && mode === 'workbench' && activePanel !== 'empty') setDrawer('service')
+  }, [activePanel, isMobile, mode])
+
+  // 跨断点(如旋转屏幕、拖窗口)时复位抽屉,避免状态残留
+  useEffect(() => {
+    setDrawer('none')
+  }, [isMobile, isTablet])
 
   // 启动序列:数据 → store → Agent 处理器 → 仿真引擎(卸载时停止)
   useEffect(() => {
@@ -215,6 +254,12 @@ export default function App() {
     ? (data.buildings.find((b) => b.id === selectedBuildingId) ?? null)
     : null
 
+  /** 沉浸胶囊提交后:手机/平板弹出指令台抽屉;桌面若左栏收起则自动展开,确保用户看到回复 */
+  const handleCapsuleSubmitted = () => {
+    if (isMobile || isTablet) setDrawer('command')
+    else setLeftCollapsed(false)
+  }
+
   const viewport = (
     <div style={S.canvasWrap}>
       <CampusCanvas data={data} />
@@ -224,7 +269,94 @@ export default function App() {
       <FloorSelector />
       {/* 房间卡与楼宇卡互斥:有房间选中时优先房间卡 */}
       {selectedRoomId ? <RoomInfoCard /> : selected && <SelectedCard building={selected} />}
-      <div style={S.hint}>拖拽旋转 · 滚轮缩放 · 点击楼宇聚焦</div>
+      {/* 手机端选中卡片时隐藏操作提示,避免贴底元素互相遮挡 */}
+      {!(isMobile && (selectedRoomId || selected)) && (
+        <div style={isMobile ? (mode === 'immersive' ? S.hintMobile : S.hintMobileWb) : S.hint}>
+          {isMobile ? '单指旋转 · 双指缩放 · 点按楼宇聚焦' : '拖拽旋转 · 滚轮缩放 · 点击楼宇聚焦'}
+        </div>
+      )}
+    </div>
+  )
+
+  /** 手机工作台:3D 全屏 + 底部双抽屉(指令台/服务台互斥)+ 角落浮动按钮 */
+  const workbenchMobile = (
+    <div style={S.workbench}>
+      {viewport}
+      <button
+        type="button"
+        style={{ ...S.fab, ...S.fabLeft }}
+        onClick={() => setDrawer((d) => (d === 'command' ? 'none' : 'command'))}
+        aria-expanded={drawer === 'command'}
+      >
+        <MessageSquare size={16} /> 指令台
+      </button>
+      <button
+        type="button"
+        style={{ ...S.fab, ...S.fabRight }}
+        onClick={() => setDrawer((d) => (d === 'service' ? 'none' : 'service'))}
+        aria-expanded={drawer === 'service'}
+      >
+        <LayoutDashboard size={16} /> 服务台
+      </button>
+      {drawer !== 'none' && (
+        <div style={S.backdrop} onClick={() => setDrawer('none')} aria-hidden="true" />
+      )}
+      {/* 抽屉常驻挂载(transform 滑出),保留聊天记录/面板状态 */}
+      <div
+        style={{ ...S.sheet, transform: drawer === 'command' ? 'translateY(0)' : 'translateY(105%)' }}
+        aria-hidden={drawer !== 'command'}
+      >
+        <button type="button" style={S.grabber} onClick={() => setDrawer('none')} title="收起指令台">
+          <span style={S.grabberBar} />
+        </button>
+        <CommandPanel drawer />
+      </div>
+      <div
+        style={{
+          ...S.sheet,
+          ...S.sheetTall,
+          transform: drawer === 'service' ? 'translateY(0)' : 'translateY(105%)',
+        }}
+        aria-hidden={drawer !== 'service'}
+      >
+        <button type="button" style={S.grabber} onClick={() => setDrawer('none')} title="收起服务台">
+          <span style={S.grabberBar} />
+        </button>
+        <Suspense fallback={null}>
+          <ServiceDesk sheet onClose={() => setDrawer('none')} />
+        </Suspense>
+      </div>
+    </div>
+  )
+
+  /** 平板工作台:3D + 右栏服务台(沿用桌面件);左栏指挥台变侧边抽屉 */
+  const workbenchTablet = (
+    <div style={S.workbench}>
+      {viewport}
+      <button
+        type="button"
+        style={{ ...S.fab, ...S.fabLeft }}
+        onClick={() => setDrawer((d) => (d === 'command' ? 'none' : 'command'))}
+        aria-expanded={drawer === 'command'}
+      >
+        <MessageSquare size={16} /> 指令台
+      </button>
+      {drawer === 'command' && (
+        <div style={S.backdrop} onClick={() => setDrawer('none')} aria-hidden="true" />
+      )}
+      <div
+        style={{
+          ...S.sideSheet,
+          transform: drawer === 'command' ? 'translateX(0)' : 'translateX(-105%)',
+        }}
+        aria-hidden={drawer !== 'command'}
+      >
+        <CommandPanel drawer />
+      </div>
+      {/* 懒加载服务台:chunk 就绪前右侧留空,不阻塞 3D 首屏 */}
+      <Suspense fallback={null}>
+        <ServiceDesk />
+      </Suspense>
     </div>
   )
 
@@ -233,21 +365,36 @@ export default function App() {
       {mode === 'immersive' ? (
         <>
           {viewport}
-          <div style={S.topbar}>
-            <span style={{ fontWeight: 700, letterSpacing: 1 }}>商大元境 · CampusTwin X</span>
-            <span style={{ opacity: 0.6 }}>
-              浙江工商大学下沙校区 · 数据 © OpenStreetMap contributors
+          <div style={isMobile ? S.topbarMobile : S.topbar}>
+            <span style={{ fontWeight: 700, letterSpacing: 1, fontSize: isMobile ? 13 : 15 }}>
+              商大元境 · CampusTwin X
             </span>
+            {/* 手机端隐藏副标题,避免与居中模式开关争抢横向空间 */}
+            {!isMobile && (
+              <span style={{ opacity: 0.6 }}>
+                浙江工商大学下沙校区 · 数据 © OpenStreetMap contributors
+              </span>
+            )}
           </div>
-          <div style={S.stat}>
-            楼宇 {data.buildings.length}(实名 {namedCount}) · 道路 {data.roads.length} · 水系{' '}
-            {data.water.length} · 树木 {data.trees.length} · 地标 {data.landmarks.length}
-          </div>
-          <CommandCapsule />
+          {/* 手机端隐藏资产统计行,减少底部遮挡 */}
+          {!isMobile && (
+            <div style={S.stat}>
+              楼宇 {data.buildings.length}(实名 {namedCount}) · 道路 {data.roads.length} · 水系{' '}
+              {data.water.length} · 树木 {data.trees.length} · 地标 {data.landmarks.length}
+            </div>
+          )}
+          <CommandCapsule onSubmitted={handleCapsuleSubmitted} />
         </>
+      ) : isMobile ? (
+        workbenchMobile
+      ) : isTablet ? (
+        workbenchTablet
       ) : (
         <div style={S.workbench}>
-          <CommandPanel />
+          <CommandPanel
+            collapsed={leftCollapsed}
+            onToggleCollapse={() => setLeftCollapsed(!leftCollapsed)}
+          />
           {viewport}
           {/* 懒加载服务台:chunk 就绪前右侧留空,不阻塞 3D 首屏 */}
           <Suspense fallback={null}>
@@ -270,9 +417,15 @@ const S: Record<string, CSSProperties> = {
     background: '#0e1114', color: '#dde3e8', fontFamily: 'system-ui',
   },
   canvasWrap: { position: 'relative', flex: 1, minWidth: 0, height: '100%' },
-  workbench: { display: 'flex', height: '100%' },
+  workbench: { position: 'relative', display: 'flex', height: '100%' },
   topbar: {
     position: 'absolute', top: 0, left: 0, right: 0, padding: '12px 20px',
+    display: 'flex', gap: 16, alignItems: 'baseline',
+    background: 'linear-gradient(#0e1114cc, transparent)', pointerEvents: 'none',
+  },
+  topbarMobile: {
+    position: 'absolute', top: 0, left: 0, right: 0,
+    padding: 'calc(10px + var(--sat, 0px)) 14px 10px',
     display: 'flex', gap: 16, alignItems: 'baseline',
     background: 'linear-gradient(#0e1114cc, transparent)', pointerEvents: 'none',
   },
@@ -283,8 +436,26 @@ const S: Record<string, CSSProperties> = {
     position: 'absolute', left: '50%', transform: 'translateX(-50%)', bottom: 12,
     fontSize: 12, opacity: 0.45, pointerEvents: 'none',
   },
+  hintMobile: {
+    position: 'absolute', left: '50%', transform: 'translateX(-50%)',
+    bottom: 'calc(82px + var(--sab, 0px))',
+    fontSize: 11.5, opacity: 0.45, pointerEvents: 'none', whiteSpace: 'nowrap',
+  },
+  hintMobileWb: {
+    position: 'absolute', left: '50%', transform: 'translateX(-50%)',
+    bottom: 'calc(66px + var(--sab, 0px))',
+    fontSize: 11.5, opacity: 0.45, pointerEvents: 'none', whiteSpace: 'nowrap',
+  },
   card: {
     position: 'absolute', right: 16, bottom: 40, minWidth: 230,
+    background: '#161b21ee', border: '1px solid #2a323b', borderRadius: 10,
+    padding: '13px 15px', boxShadow: '0 8px 30px #00000088', zIndex: 15,
+  },
+  cardMobile: {
+    position: 'absolute',
+    left: 'calc(12px + var(--sal, 0px))', right: 'calc(12px + var(--sar, 0px))',
+    bottom: 'calc(84px + var(--sab, 0px))',
+    maxHeight: '38%', overflowY: 'auto',
     background: '#161b21ee', border: '1px solid #2a323b', borderRadius: 10,
     padding: '13px 15px', boxShadow: '0 8px 30px #00000088', zIndex: 15,
   },
@@ -310,9 +481,18 @@ const S: Record<string, CSSProperties> = {
     background: '#161b21ee', border: '1px solid #2a323b',
     boxShadow: '0 12px 40px #00000099', zIndex: 20,
   },
+  capsuleMobile: {
+    position: 'absolute', left: '50%', transform: 'translateX(-50%)',
+    bottom: 'calc(14px + var(--sab, 0px))',
+    display: 'flex', alignItems: 'center', gap: 8,
+    width: 'calc(100vw - 32px - var(--sal, 0px) - var(--sar, 0px))',
+    padding: '8px 10px 8px 16px', borderRadius: 999,
+    background: '#161b21ee', border: '1px solid #2a323b',
+    boxShadow: '0 12px 40px #00000099', zIndex: 20,
+  },
   capsuleInput: {
     flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none',
-    color: '#dde3e8', fontSize: 13.5,
+    color: '#dde3e8', fontSize: 16,
   },
   capsuleBtn: {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -320,4 +500,39 @@ const S: Record<string, CSSProperties> = {
     background: '#3aa7ff', color: '#0e1114', flexShrink: 0,
   },
   capsuleBtnDisabled: { opacity: 0.4, cursor: 'not-allowed' },
+  // ===== 移动端/平板工作台抽屉 =====
+  fab: {
+    position: 'absolute', bottom: 'calc(12px + var(--sab, 0px))', zIndex: 24,
+    display: 'flex', alignItems: 'center', gap: 6,
+    height: 44, padding: '0 16px', borderRadius: 999,
+    background: '#161b21ee', border: '1px solid #2a323b', color: '#dde3e8',
+    fontSize: 13, fontFamily: 'inherit', cursor: 'pointer',
+    boxShadow: '0 8px 24px #00000077',
+  },
+  fabLeft: { left: 'calc(12px + var(--sal, 0px))' },
+  fabRight: { right: 'calc(12px + var(--sar, 0px))' },
+  backdrop: {
+    position: 'absolute', inset: 0, background: '#00000066', zIndex: 28,
+  },
+  sheet: {
+    position: 'absolute', left: 0, right: 0, bottom: 0, height: '58%',
+    display: 'flex', flexDirection: 'column', overflow: 'hidden',
+    background: '#14181d', borderTop: '1px solid #2a323b',
+    borderRadius: '16px 16px 0 0', zIndex: 30,
+    paddingBottom: 'var(--sab, 0px)',
+    transition: 'transform 0.26s ease-out',
+  },
+  sheetTall: { height: '65%' },
+  grabber: {
+    flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center',
+    padding: '8px 0 4px', border: 'none', background: 'transparent', cursor: 'pointer',
+  },
+  grabberBar: { width: 36, height: 4, borderRadius: 2, background: '#3a4450' },
+  sideSheet: {
+    position: 'absolute', top: 0, left: 0, bottom: 0, width: 320, zIndex: 30,
+    display: 'flex', flexDirection: 'column',
+    background: '#14181d', borderRight: '1px solid #2a323b',
+    boxShadow: '12px 0 32px rgba(0,0,0,0.35)',
+    transition: 'transform 0.26s ease-out',
+  },
 }

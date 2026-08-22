@@ -121,6 +121,7 @@ for (const b of buildings) {
 
   if (feature === 'teaching') {
     // 教学楼每层 8 间 × 层数;编号:楼名首字母 + 楼层 + 两位序号(C302)
+    // 对齐真实习惯:官方文件写作「A教学楼217教室」(楼层+两位序号,奇偶分走廊两侧)
     const letter = name.charAt(0).toUpperCase()
     for (let f = 1; f <= levels; f++) {
       for (let i = 1; i <= 8; i++) {
@@ -160,10 +161,13 @@ for (const b of buildings) {
         })
       }
       if (hasLab) {
+        // 实验室门牌号接续教室序号(01–04 教室,05–06 实验室),与真实习惯一致
+        // (信电楼实验室直接用普通房号挂牌,如信电楼 204;避免与教室同号重复)
         for (let i = 1; i <= 2; i++) {
-          const nn = String(i).padStart(2, '0')
+          const idNn = String(i).padStart(2, '0') // id 保持稳定(lab01/lab02)
+          const nn = String(4 + i).padStart(2, '0')
           addRoom({
-            id: `r_${code}${f}lab${nn}`,
+            id: `r_${code}${f}lab${idNn}`,
             buildingId: b.id,
             name: `${name}${f}${nn}实验室`,
             floor: f,
@@ -178,7 +182,8 @@ for (const b of buildings) {
       }
     }
   } else if (feature === 'admin' && name === '综合大楼') {
-    // 综合大楼 9/12 楼会议室(含真实「九楼第一会议室」,由样例保留)
+    // 综合大楼 9/12 楼会议室(真实用法:「综合大楼9楼第一会议室」,见学校官网会议安排)
+    // 注:12 楼样例「十二楼会议室」已更名为「十二楼第一会议室」,保证楼层内序号连续
     const rooms = [
       { id: 'r_zh_901', name: '九楼第一会议室', floor: 9, capacity: 16 },
       { id: 'r_zh_902', name: '九楼第二会议室', floor: 9, capacity: 12 },
@@ -236,12 +241,14 @@ for (const b of buildings) {
       positionHint: positionHint(b, 1),
     })
   } else if (feature === 'library') {
-    // 图书馆每层 1 个阅览室(占座仿真见 library.json)
+    // 图书馆每层 1 个阅览室(占座仿真见 library.json);
+    // 命名对齐真实习惯「图书馆二楼报告厅」:中文楼层 + 楼 + 功能名
+    const CN_FLOOR = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二']
     for (let f = 1; f <= levels; f++) {
       addRoom({
         id: `r_lib_${f}01`,
         buildingId: b.id,
-        name: `图书馆${f}层阅览室`,
+        name: `图书馆${CN_FLOOR[f]}楼阅览室`,
         floor: f,
         type: 'classroom',
         capacity: 240,

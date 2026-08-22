@@ -3,6 +3,7 @@
 import type { CSSProperties } from 'react'
 import { useUIStore, type Quality } from '../../store/uiStore'
 import { QUALITY_ORDER, QUALITY_PRESETS } from '../../lib/quality'
+import { useIsMobile } from './useMediaQuery'
 
 const COLORS = {
   panel: '#161b21',
@@ -37,6 +38,8 @@ export default function QualitySwitch() {
   const autoQuality = useUIStore((s) => s.autoQuality)
   const setQuality = useUIStore((s) => s.setQuality)
   const setAutoQuality = useUIStore((s) => s.setAutoQuality)
+  const mode = useUIStore((s) => s.mode)
+  const isMobile = useIsMobile()
 
   const pick = (q: Quality) => {
     // 手动选档即退出自动档,避免 PerformanceMonitor 立刻把用户选择降回去
@@ -48,13 +51,18 @@ export default function QualitySwitch() {
     <div
       style={{
         position: 'absolute',
-        top: 16,
-        right: 16,
+        // 手机端:让位给顶部居中的模式开关,收纳到其下方右缘并避让刘海
+        top: isMobile
+          ? mode === 'immersive'
+            ? 'calc(96px + var(--sat, 0px))'
+            : 'calc(62px + var(--sat, 0px))'
+          : 16,
+        right: isMobile ? 'calc(8px + var(--sar, 0px))' : 16,
         zIndex: 20,
         display: 'flex',
         alignItems: 'center',
-        gap: 8,
-        padding: '6px 10px',
+        gap: isMobile ? 6 : 8,
+        padding: isMobile ? '5px 8px' : '6px 10px',
         background: COLORS.panel,
         border: `1px solid ${COLORS.border}`,
         borderRadius: 6,
@@ -65,7 +73,7 @@ export default function QualitySwitch() {
         pointerEvents: 'auto',
       }}
     >
-      <span style={{ opacity: 0.6 }}>画质</span>
+      {!isMobile && <span style={{ opacity: 0.6 }}>画质</span>}
       <span style={{ color: COLORS.gold, minWidth: 14, textAlign: 'center' }}>
         {QUALITY_PRESETS[quality].label}
       </span>
@@ -83,6 +91,7 @@ export default function QualitySwitch() {
         ))}
       </div>
       <label
+        title="自动降档"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -90,7 +99,7 @@ export default function QualitySwitch() {
           cursor: 'pointer',
           opacity: autoQuality ? 1 : 0.6,
           borderLeft: `1px solid ${COLORS.border}`,
-          paddingLeft: 8,
+          paddingLeft: isMobile ? 6 : 8,
         }}
       >
         <input
@@ -99,7 +108,7 @@ export default function QualitySwitch() {
           onChange={(e) => setAutoQuality(e.target.checked)}
           style={{ accentColor: COLORS.brand, margin: 0, width: 12, height: 12 }}
         />
-        自动
+        {!isMobile && '自动'}
       </label>
     </div>
   )

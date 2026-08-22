@@ -7,7 +7,9 @@ import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Sun, Sunset, Moon, Clock } from 'lucide-react'
 import { useSimStore } from '../../store/simStore'
+import { useUIStore } from '../../store/uiStore'
 import { getDuskMs, getNightMs } from '../../lib/sun'
+import { useIsMobile } from './useMediaQuery'
 
 type Choice = 'auto' | 'day' | 'dusk' | 'night'
 
@@ -24,6 +26,8 @@ const ITEMS: { key: Choice; label: string; icon: typeof Sun }[] = [
 
 export default function TimeSwitch() {
   const setSimClock = useSimStore((s) => s.setSimClock)
+  const mode = useUIStore((s) => s.mode)
+  const isMobile = useIsMobile()
   const [choice, setChoice] = useState<Choice>('auto')
 
   const pick = (c: Choice) => {
@@ -51,17 +55,29 @@ export default function TimeSwitch() {
   }
 
   return (
-    <div style={S.wrap}>
+    <div
+      style={
+        isMobile
+          ? {
+              ...S.wrap,
+              // 手机端:跟在画质开关下方,纯图标按钮收窄横向占用
+              top: mode === 'immersive' ? 'calc(152px + var(--sat, 0px))' : 'calc(118px + var(--sat, 0px))',
+              right: 'calc(8px + var(--sar, 0px))',
+            }
+          : S.wrap
+      }
+    >
       {ITEMS.map(({ key, label, icon: Icon }) => (
         <button
           key={key}
           type="button"
           onClick={() => pick(key)}
           title={`时间·${label}`}
+          aria-label={`时间·${label}`}
           style={key === choice ? { ...S.btn, ...S.btnActive } : S.btn}
         >
-          <Icon size={12} style={{ marginRight: 4, verticalAlign: -1.5 }} />
-          {label}
+          <Icon size={isMobile ? 15 : 12} style={isMobile ? undefined : { marginRight: 4, verticalAlign: -1.5 }} />
+          {!isMobile && label}
         </button>
       ))}
     </div>

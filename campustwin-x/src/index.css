@@ -1,116 +1,99 @@
+/* 商大元境 · CampusTwin X —— 全局基座样式
+ * 面向手机 / 平板 / 桌面的响应式与触摸兜底;
+ * 组件级布局仍以各文件内联样式为主,此处只放全局契约与 CSS 才能做的事。 */
+
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --ctx-bg: #0e1114;
+  --ctx-text: #dde3e8;
+  --ctx-border: #2a323b;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
-
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+  /* iOS 刘海屏/圆角/Home 指示条安全区(不支持 env() 时回落 0px)。
+   * 内联样式中以 calc(xx + var(--sat, 0px)) 形式引用。 */
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
-}
-
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
+html,
+body {
+  height: 100%;
 }
 
 body {
   margin: 0;
+  background: var(--ctx-bg);
+  color: var(--ctx-text);
+  font-family: system-ui, -apple-system, 'PingFang SC', sans-serif;
+  /* 全屏 3D 应用:禁止橡皮筋滚动穿透 */
+  overscroll-behavior: none;
+  /* 去除触摸点击的灰色闪斑 */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
+#root {
+  height: 100%;
 }
 
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
+/* 触摸目标:消除 300ms 点击延迟 / 防止双击缩放干扰 3D 操作 */
+button,
+[role='button'],
+input,
+select,
+textarea,
+label {
+  touch-action: manipulation;
+}
+
+/* 触摸反馈:触摸设备无可靠 hover,用 :active 提亮替代 */
+button:not(:disabled):active {
+  filter: brightness(1.22);
+}
+
+/* hover 提亮只在真正支持悬停的设备(鼠标)启用,避免触摸端 hover 粘滞 */
+@media (hover: hover) {
+  button:not(:disabled):hover {
+    filter: brightness(1.12);
   }
 }
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
+
+@media (max-width: 768px) {
+  /* iOS 对字号 <16px 的输入控件聚焦时自动放大页面,手机端统一兜底 16px。
+   * !important 用于压过组件内联样式中的 13px。 */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* 触摸目标 ≥40px:min-height/min-width 可压过内联的固定 height/width。
+   * 桌面端不受影响。 */
+  button,
+  [role='button'] {
+    min-height: 40px;
+    min-width: 40px;
   }
 }
-p {
-  margin: 0;
+
+/* 面板内细滚动条,减少移动端视觉噪音 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a323b transparent;
 }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
+/* 横向滚动条(手机端楼层选择器):隐藏滚动条但保留滑动 */
+.ct-scroll-x {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.ct-scroll-x::-webkit-scrollbar {
+  display: none;
 }
 
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
-}
-
-/* ===== 启动 loading:深色底 + 居中品牌文字呼吸动画(任务D,避免首屏白屏) ===== */
+/* ===== 启动 loading:深色底 + 居中品牌文字呼吸动画(避免首屏白屏) ===== */
 .ctx-boot-loading {
   position: fixed;
   inset: 0;
@@ -119,8 +102,8 @@ code {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: #0e1114;
-  color: #dde3e8;
+  background: var(--ctx-bg);
+  color: var(--ctx-text);
   font-family: system-ui, -apple-system, 'PingFang SC', sans-serif;
   z-index: 999;
 }

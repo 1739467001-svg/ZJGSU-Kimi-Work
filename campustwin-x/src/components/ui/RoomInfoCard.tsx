@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { useCampusStore } from '../../store/campusStore'
 import type { DeviceType, RoomStatus, RoomType } from '../../lib/agentTypes'
+import { useIsMobile } from './useMediaQuery'
 
 const COLORS = {
   panel: '#161b21ee',
@@ -50,6 +51,7 @@ export default function RoomInfoCard() {
   const buildings = useCampusStore((s) => s.buildings)
   const focusCamera = useCampusStore((s) => s.focusCamera)
   const selectRoom = useCampusStore((s) => s.selectRoom)
+  const isMobile = useIsMobile()
 
   const room = selectedRoomId ? (rooms.find((r) => r.id === selectedRoomId) ?? null) : null
   if (!room) return null
@@ -59,7 +61,7 @@ export default function RoomInfoCard() {
   const schedule = [...room.schedule].sort((a, b) => a.start.localeCompare(b.start))
 
   return (
-    <div style={S.card} aria-label="房间信息">
+    <div style={isMobile ? S.cardMobile : S.card} aria-label="房间信息">
       <div style={S.head}>
         <div style={{ fontSize: 17, fontWeight: 700 }}>{room.name}</div>
         <button
@@ -139,6 +141,23 @@ const S: Record<string, CSSProperties> = {
     bottom: 40,
     minWidth: 240,
     maxWidth: 300,
+    background: COLORS.panel,
+    border: `1px solid ${COLORS.border}`,
+    borderRadius: 10,
+    padding: '13px 15px',
+    boxShadow: '0 8px 30px #00000088',
+    zIndex: 15,
+    color: COLORS.text,
+    fontFamily: 'inherit',
+  },
+  // 手机端:贴底全宽,抬高避开底部指令胶囊/抽屉按钮,限高可滚动
+  cardMobile: {
+    position: 'absolute',
+    left: 'calc(12px + var(--sal, 0px))',
+    right: 'calc(12px + var(--sar, 0px))',
+    bottom: 'calc(84px + var(--sab, 0px))',
+    maxHeight: '42%',
+    overflowY: 'auto',
     background: COLORS.panel,
     border: `1px solid ${COLORS.border}`,
     borderRadius: 10,

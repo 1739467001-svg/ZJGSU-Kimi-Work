@@ -8,7 +8,9 @@ import { useMemo } from 'react'
 import type { CSSProperties } from 'react'
 import { FoldVertical } from 'lucide-react'
 import { useCampusStore } from '../../store/campusStore'
+import { useUIStore } from '../../store/uiStore'
 import { computeFloorLayout } from '../../lib/floorLayout'
+import { useIsMobile } from './useMediaQuery'
 
 const COLORS = {
   panel: '#161b21cc',
@@ -25,6 +27,8 @@ export default function FloorSelector() {
   const highlightedRoomIds = useCampusStore((s) => s.highlightedRoomIds)
   const focusCamera = useCampusStore((s) => s.focusCamera)
   const setSlicedBuilding = useCampusStore((s) => s.setSlicedBuilding)
+  const mode = useUIStore((s) => s.mode)
+  const isMobile = useIsMobile()
 
   const building = slicedBuildingId
     ? (buildings.find((b) => b.id === slicedBuildingId) ?? null)
@@ -58,13 +62,30 @@ export default function FloorSelector() {
     focusCamera(target ? { type: 'room', id: target.id } : { type: 'building', id: building.id })
   }
 
-  // 顶层在上
+  // 顶层在上(手机端横排时顶层在最左)
   const floors = Array.from({ length: building.levels }, (_, i) => building.levels - i)
 
+  // 手机端:竖排左缘会挡住剖切楼宇,改为顶部横向滚动条(避开右上开关组与贴底卡片)
+  const wrapStyle: CSSProperties = isMobile
+    ? {
+        ...S.wrap,
+        flexDirection: 'row',
+        alignItems: 'center',
+        left: 'calc(8px + var(--sal, 0px))',
+        right: 'calc(8px + var(--sar, 0px))',
+        top: mode === 'immersive' ? 'calc(206px + var(--sat, 0px))' : 'calc(172px + var(--sat, 0px))',
+        transform: 'none',
+        maxHeight: 'none',
+        padding: '6px',
+      }
+    : S.wrap
+
   return (
-    <div style={S.wrap} aria-label="楼层选择器">
-      <div style={S.title}>{building.name ?? '未命名楼宇'}</div>
-      <div style={S.list}>
+    <div style={wrapStyle} aria-label="楼层选择器">
+      <div style={isMobile ? { ...S.title, borderBottom: 'none', flexShrink: 0 } : S.title}>
+        {building.name ?? '未命名楼宇'}
+      </div>
+      <div style={isMobile ? S.listMobile : S.list} className={isMobile ? 'ct-scroll-x' : undefined}>
         {floors.map((f) => {
           const active = f === selectedFloor
           const marked = active || highlightedFloors.has(f)
@@ -85,7 +106,7 @@ export default function FloorSelector() {
       <button
         type="button"
         onClick={() => setSlicedBuilding(null)}
-        style={S.collapseBtn}
+        style={isMobile ? { ...S.collapseBtn, flexShrink: 0 } : S.collapseBtn}
         title="退出分层剖切视图"
       >
         <FoldVertical size={12} style={{ marginRight: 4, verticalAlign: -1.5 }} />
@@ -135,6 +156,15 @@ const S: Record<string, CSSProperties> = {
     overflowY: 'auto',
     scrollbarWidth: 'thin',
   },
+  listMobile: {
+    display: 'flex',
+    flexDirection: 'row',
+    gap: 2,
+    overflowX: 'auto',
+    overflowY: 'hidden',
+    flex: 1,
+    minWidth: 0,
+  },
   btn: {
     position: 'relative',
     display: 'flex',
@@ -152,6 +182,7 @@ const S: Record<string, CSSProperties> = {
     opacity: 0.65,
     fontFamily: 'inherit',
     minWidth: 44,
+    flexShrink: 0,
   },
   btnActive: {
     border: `1px solid ${COLORS.brand}`,

@@ -38,9 +38,21 @@ export function clamp01(t: number): number {
 }
 
 // ---------- 常量 ----------
-/** 全景机位(指挥中心默认视角) */
+/** 全景机位(指挥中心默认斜视视角;TourCruise 返校落幅与各兜底分支复用,勿改为俯视) */
 export const OVERVIEW_POS = new THREE.Vector3(420, 480, 620)
 export const OVERVIEW_TARGET = new THREE.Vector3(40, 0, -80)
+/**
+ * 校园全局「正上方俯视」机位(campus 聚焦 / 态势扫描专用,看地图视角)。
+ * 高度推算:fov=42°(CampusCanvas),垂直覆盖 = 2·h·tan(21°) ≈ 0.768h;
+ * 覆盖全校南北 1.1km 需 h ≥ 550/tan(21°) ≈ 1432m,取 1450m 留边距
+ * (此时东西覆盖 ≈ 1.365h ≈ 1980m > 1.4km,富余;maxDistance=2200、far=6000 均兼容)。
+ * 注视点 = 校园中心 (40, 0, -80)。
+ * 防万向锁:相机自正北微偏 2.5°(z 向南为正,北 = -z),
+ * 水平偏移 = 1450·tan(2.5°) ≈ 63m,观感仍为正俯视地图、上北下南,
+ * 同时 OrbitControls up=+Y 不与视线共线。
+ */
+export const TOPDOWN_POS = new THREE.Vector3(40, 1450, -143)
+export const TOPDOWN_TARGET = new THREE.Vector3(40, 0, -80)
 /** 校园中心(用于推算"楼前方"朝向) */
 const CAMPUS_CENTER = new THREE.Vector2(40, -80)
 
@@ -143,6 +155,15 @@ function overviewFlight(fromPos: THREE.Vector3, fromTgt: THREE.Vector3, duration
     kind: 'point', t: 0, duration,
     fromPos, fromTgt,
     toPos: OVERVIEW_POS.clone(), toTgt: OVERVIEW_TARGET.clone(),
+  }
+}
+
+/** 正上方俯视飞行:campus 聚焦 / 态势扫描专用(看地图视角) */
+function topdownFlight(fromPos: THREE.Vector3, fromTgt: THREE.Vector3, duration = 2.4): PointFlight {
+  return {
+    kind: 'point', t: 0, duration,
+    fromPos, fromTgt,
+    toPos: TOPDOWN_POS.clone(), toTgt: TOPDOWN_TARGET.clone(),
   }
 }
 
@@ -262,12 +283,12 @@ export default function CameraDirector({ bus, controlsRef }: CameraDirectorProps
     }
   }
 
-  // scanTrigger:先拉全景
+  // scanTrigger:先拉全景(正上方俯视,看地图视角)
   useEffect(() => {
     if (scanTrigger <= 0 || scanTrigger === lastScanRef.current) return
     lastScanRef.current = scanTrigger
     const a = currentAnchors()
-    tryStart(overviewFlight(a.pos, a.tgt))
+    tryStart(topdownFlight(a.pos, a.tgt))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scanTrigger])
 
@@ -279,7 +300,8 @@ export default function CameraDirector({ bus, controlsRef }: CameraDirectorProps
     const finish = () => useCampusStore.getState().focusCamera(null)
 
     if (focus.type === 'campus') {
-      if (tryStart(overviewFlight(a.pos, a.tgt))) finish()
+      // 「校园概览/态势」→ 正上方俯视全局(看地图视角)
+      if (tryStart(topdownFlight(a.pos, a.tgt))) finish()
       return
     }
     if (focus.type === 'building') {
