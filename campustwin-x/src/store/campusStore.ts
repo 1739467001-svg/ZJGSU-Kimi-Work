@@ -120,9 +120,19 @@ export const useCampusStore = create<CampusState>()((set, get) => {
       set((s) => ({ tickets: [...s.tickets, t] }))
       return t
     },
-    advanceTicket: (id) => set((s) => ({
-      tickets: s.tickets.map((t) => (t.id === id ? { ...t, status: t.status === 'new' ? 'doing' : 'done' } : t)),
-    })),
+    advanceTicket: (id) =>
+      set((s) => {
+        const target = s.tickets.find((t) => t.id === id)
+        const tickets = s.tickets.map((t) =>
+          t.id === id ? { ...t, status: t.status === 'new' ? ('doing' as const) : ('done' as const) } : t,
+        )
+        // 工单办结时:若它就是当前红色告警的来源,同步撤下 3D 场景中的告警标志
+        const justDone = target && target.status === 'doing'
+        const clearAlarm = justDone && target.roomId === s.alarmRoomId && s.alarmRoomId !== null
+        return clearAlarm
+          ? { tickets, alarmRoomId: null, alarmBuildingId: null }
+          : { tickets }
+      }),
     selectBuilding: (selectedBuildingId) => set({ selectedBuildingId }),
     selectRoom: (selectedRoomId) => set({ selectedRoomId }),
     highlightBuildings: (highlightedBuildingIds) => set({ highlightedBuildingIds }),
