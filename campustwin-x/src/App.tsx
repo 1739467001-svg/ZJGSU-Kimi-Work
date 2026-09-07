@@ -43,6 +43,9 @@ const FEATURE_NAME: Record<string, string> = {
   sport: '体育', dorm: '公寓', canteen: '食堂', service: '配套', landmark: '地标', unknown: '其他',
 }
 
+/** 剖切引导气泡"已看过"标记的 localStorage key(带项目前缀) */
+const SLICE_HINT_KEY = 'ctx_slice_hint_seen'
+
 /** 双门是 landmark 无 building 记录:点击后合成伪楼宇卡片(简介走 buildingIntro 的 gate_* 条目) */
 const GATE_PSEUDO: Record<string, { height: number }> = {
   gate_south: { height: 12 }, // 飞翔门翼尖约 8–12m
@@ -143,6 +146,42 @@ function SelectedCard({ building }: { building: BakedBuilding }) {
   const focusCamera = useCampusStore((s) => s.focusCamera)
   const rooms = useCampusStore((s) => s.rooms)
   const isMobile = useIsMobile()
+  /** 剖切入口一次性引导气泡(localStorage 记住"已看过") */
+  const [showSliceHint, setShowSliceHint] = useState(false)
+
+  // 首次选中多层建筑时弹出引导;已看过(localStorage)则不再出现
+  useEffect(() => {
+    if (building.levels <= 1) return
+    let seen = true
+    try {
+      seen = !!localStorage.getItem(SLICE_HINT_KEY)
+    } catch {
+      seen = true // 隐私模式等读不到存储时按已看过处理,避免反复打扰
+    }
+    if (!seen) setShowSliceHint(true)
+  }, [building.id, building.levels])
+
+  // 气泡消失:点击任意处 或 5 秒超时,并写入"已看过"
+  useEffect(() => {
+    if (!showSliceHint) return
+    let done = false
+    const dismiss = () => {
+      if (done) return
+      done = true
+      setShowSliceHint(false)
+      try {
+        localStorage.setItem(SLICE_HINT_KEY, '1')
+      } catch {
+        /* 存储不可用时静默忽略 */
+      }
+    }
+    const timer = window.setTimeout(dismiss, 5000)
+    window.addEventListener('pointerdown', dismiss)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('pointerdown', dismiss)
+    }
+  }, [showSliceHint])
 
   // 可预约房间口径与预约面板一致:meeting 且 free
   const bookable = rooms.filter(
@@ -179,8 +218,18 @@ function SelectedCard({ building }: { building: BakedBuilding }) {
           (会议室 · 当前空闲)
         </div>
       )}
+      {building.levels > 1 && showSliceHint && (
+        <div style={S.sliceHint} role="note">
+          这栋楼有 {building.levels} 层,点击下方按钮可逐层展开查看房间
+        </div>
+      )}
       {building.levels > 1 && (
-        <button type="button" onClick={toggleSlice} style={S.cardBtn}>
+        <button
+          type="button"
+          onClick={toggleSlice}
+          style={sliced ? S.cardBtnSliceActive : S.cardBtnSlice}
+          className={sliced ? undefined : 'ctx-slice-btn'}
+        >
           {sliced ? '收起剖切' : `分层展开(${building.levels} 层)`}
         </button>
       )}
@@ -320,7 +369,9 @@ export default function App() {
       {/* 手机端选中卡片时隐藏操作提示,避免贴底元素互相遮挡 */}
       {!(isMobile && (selectedRoomId || selected)) && (
         <div style={isMobile ? (mode === 'immersive' ? S.hintMobile : S.hintMobileWb) : S.hint}>
-          {isMobile ? '单指旋转 · 双指缩放 · 点按楼宇聚焦' : '拖拽旋转 · 滚轮缩放 · 点击楼宇聚焦'}
+          {isMobile
+            ? '单指旋转 · 双指缩放 · 点按楼宇聚焦 · 多层建筑可分层展开'
+            : '拖拽旋转 · 滚轮缩放 · 点击楼宇聚焦 · 选中多层建筑可分层展开查看每层房间'}
         </div>
       )}
     </div>
@@ -512,10 +563,23 @@ const S: Record<string, CSSProperties> = {
     fontSize: 12.5, marginTop: 8, paddingTop: 8, opacity: 0.75, lineHeight: 1.6,
     borderTop: '1px solid #2a323b',
   },
-  cardBtn: {
+  // 分层展开按钮:暖金强调色(与选中房间/脉冲光柱的 #e8b84b 同族),
+  // 未剖切时叠加 ctx-slice-btn 呼吸动画(见 index.css)引导发现入口
+  cardBtnSlice: {
     display: 'block', marginTop: 10, padding: '6px 12px', fontSize: 12.5, cursor: 'pointer',
     width: '100%', textAlign: 'center', fontFamily: 'inherit',
-    background: '#3aa7ff22', color: '#3aa7ff', border: '1px solid #3aa7ff55', borderRadius: 6,
+    background: '#e8b84b1f', color: '#e8b84b', border: '1px solid #e8b84b66', borderRadius: 6,
+  },
+  cardBtnSliceActive: {
+    display: 'block', marginTop: 10, padding: '6px 12px', fontSize: 12.5, cursor: 'pointer',
+    width: '100%', textAlign: 'center', fontFamily: 'inherit',
+    background: '#e8b84b33', color: '#f2cd7a', border: '1px solid #e8b84b', borderRadius: 6,
+  },
+  // 剖切入口一次性引导气泡:贴按钮上方,暖金描边;宽度受卡片约束,移动端不外溢
+  sliceHint: {
+    marginTop: 10, padding: '8px 10px', fontSize: 12, lineHeight: 1.5,
+    background: '#e8b84b14', border: '1px solid #e8b84b55', borderRadius: 8,
+    color: '#e8b84b', maxWidth: 260,
   },
   modeToggle: {
     position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)',
