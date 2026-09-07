@@ -2,7 +2,7 @@
 // 节奏:调度Agent 起手(200-500ms)→ 领域Agent 逐步推进(每步 200-500ms)
 import type { AgentStep, Intent, IntentName, Room, TaskResult } from '../lib/agentTypes'
 import type { BakedBuilding, BakedLandmark } from '../lib/campusData'
-import { loadRooms } from '../lib/rooms'
+import { requestRooms } from '../lib/roomsLoader'
 import type { useCampusStore } from '../store/campusStore'
 import type { useUIStore } from '../store/uiStore'
 import type { useSimStore } from '../store/simStore'
@@ -37,13 +37,13 @@ export interface HandlerOutput {
 
 export type IntentHandler = (intent: Intent, ctx: HandlerContext) => Promise<HandlerOutput>
 
-/** 房间数据兜底:store 为空时加载 /data/sim/rooms.json 并回写 store */
+/** 房间数据兜底:store 为空时经共享缓存懒加载 /data/sim/rooms.json 并回写 store */
 export async function ensureRooms(ctx: HandlerContext): Promise<Room[]> {
   const existing = ctx.campus.getState().rooms
   if (existing.length) return existing
-  const rooms = await loadRooms()
-  if (rooms.length) ctx.campus.getState().setRooms(rooms)
-  return rooms
+  // requestRooms 内部走 ensureRoomsLoaded 的全局 Promise 缓存:
+  // 与剖切/选房/面板等触发点共享,不会重复 fetch
+  return requestRooms()
 }
 
 // ---------------------------------------------------------------------------

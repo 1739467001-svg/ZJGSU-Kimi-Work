@@ -50,10 +50,20 @@ export function stepDownQuality(q: Quality): Quality | null {
   return i >= 0 && i < QUALITY_ORDER.length - 1 ? QUALITY_ORDER[i + 1] : null
 }
 
-/** 实际渲染 pixelRatio(受档位上限与设备 DPR 双重约束) */
+/** 移动端 UA 判定(画质降载用;响应式布局另走 useMediaQuery 断点) */
+export function isMobileDevice(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+}
+
+/** 移动端 pixelRatio 硬封顶:无论档位,移动端不超过 1.5(桌面不受限,维持原值) */
+const MOBILE_DPR_CAP = 1.5
+
+/** 实际渲染 pixelRatio(受档位上限与设备 DPR 双重约束;移动端再叠加 1.5 硬顶) */
 export function resolvePixelRatio(q: Quality): number {
   const dpr = typeof window !== 'undefined' && window.devicePixelRatio ? window.devicePixelRatio : 1
-  return Math.min(dpr, QUALITY_PRESETS[q].pixelRatioCap)
+  const cap = QUALITY_PRESETS[q].pixelRatioCap
+  return Math.min(dpr, isMobileDevice() ? Math.min(cap, MOBILE_DPR_CAP) : cap)
 }
 
 interface NavigatorWithMemory extends Navigator {

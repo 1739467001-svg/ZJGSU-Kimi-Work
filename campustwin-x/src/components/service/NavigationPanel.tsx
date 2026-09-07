@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { ChevronRight, CircleDot, Flag, Navigation, Route } from 'lucide-react'
 import { useCampusStore } from '../../store/campusStore'
+import { requestRooms } from '../../lib/roomsLoader'
 import { LocateButton } from './LocateButton'
 
 /**
@@ -23,6 +24,11 @@ export function NavigationPanel() {
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
   const [pending, setPending] = useState(false)
+
+  // 导航面板首次打开 = rooms 懒加载触发点(幂等;房间级目的地候选在数据到达后可用)
+  useEffect(() => {
+    void requestRooms()
+  }, [])
 
   const placeNames = useMemo(
     () => buildings.filter((b) => b.name).map((b) => b.name as string).sort((a, b) => a.localeCompare(b, 'zh')),

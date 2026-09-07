@@ -8,6 +8,22 @@ export async function loadRooms(): Promise<Room[]> {
   return data.rooms as Room[]
 }
 
+// ---------- 懒加载缓存:rooms.json(~344KB)只在首次需要时才请求 ----------
+// 触发点:首次剖切 / 首次房间选中 / AI 涉及房间的指令 / 预约等业务面板首次打开。
+// 幂等:多次调用共享同一个 Promise,只 fetch 一次;失败时清空缓存允许下次重试。
+let roomsPromise: Promise<Room[]> | null = null
+
+/** 带缓存的幂等加载:返回同一个 Promise,不会重复请求 rooms.json */
+export function ensureRoomsLoaded(): Promise<Room[]> {
+  if (!roomsPromise) {
+    roomsPromise = loadRooms().catch(() => {
+      roomsPromise = null // 失败不缓存,下次调用可重试
+      return []
+    })
+  }
+  return roomsPromise
+}
+
 export interface RoomQuery {
   type?: RoomType
   capacity?: number

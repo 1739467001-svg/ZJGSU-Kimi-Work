@@ -6,7 +6,6 @@
 
 import type { BakedBuilding } from '../lib/campusData'
 import type { CanteenCrowd, EventItem, LibrarySeat, Room } from '../lib/agentTypes'
-import { loadRooms } from '../lib/rooms'
 import { useCampusStore } from '../store/campusStore'
 import { useSimStore } from '../store/simStore'
 import { useUIStore } from '../store/uiStore'
@@ -40,7 +39,6 @@ interface CanteenFile { canteens: CanteenInfo[] }
 interface EventsFile { events: EventItem[] }
 
 interface EngineData {
-  rooms: Room[]
   buildings: BakedBuilding[]
   canteens: CanteenInfo[]
   library: LibraryInfo | null
@@ -58,8 +56,9 @@ async function fetchJson<T>(url: string): Promise<T | null> {
 }
 
 async function loadEngineData(): Promise<EngineData> {
-  const [rooms, canteenFile, libraryFile, eventsFile] = await Promise.all([
-    loadRooms(),
+  // rooms 不在启动时拉取(344KB,懒加载);快照每 500ms 实时读 campusStore.rooms,
+  // rooms 未加载前楼宇占用率走 baselineOccupancy 兜底曲线,加载后自动切精确口径。
+  const [canteenFile, libraryFile, eventsFile] = await Promise.all([
     fetchJson<CanteenFile>('/data/sim/canteen.json'),
     fetchJson<LibraryInfo>('/data/sim/library.json'),
     fetchJson<EventsFile>('/data/sim/events.json'),
@@ -71,7 +70,6 @@ async function loadEngineData(): Promise<EngineData> {
     buildings = b?.buildings ?? []
   }
   return {
-    rooms,
     buildings,
     canteens: canteenFile?.canteens ?? [],
     library: libraryFile,
@@ -118,13 +116,14 @@ export function startSimEngine(): () => void {
     const weather = useUIStore.getState().weather
     const crowdFactor = weatherCrowdFactor(weather)
 
-    // 1) 房间占用
+    // 1) 房间占用(rooms 懒加载:实时读 store,未加载时为 [],占用率走功能兜底曲线)
+    const rooms = useCampusStore.getState().rooms
     const occupancy: Record<string, boolean> = {}
-    for (const r of data.rooms) occupancy[r.id] = roomOccupied(r, hhmm)
+    for (const r of rooms) occupancy[r.id] = roomOccupied(r, hhmm)
 
     // 2) 楼宇占用率(有房间按房间统计,无房间按功能兜底曲线)
     const roomStats = new Map<string, { total: number; busy: number }>()
-    for (const r of data.rooms) {
+    for (const r of rooms) {
       const st = roomStats.get(r.buildingId) ?? { total: 0, busy: 0 }
       st.total += 1
       if (occupancy[r.id]) st.busy += 1

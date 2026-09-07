@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { AirVent, CalendarCheck, CheckCircle2, Lightbulb, Mic, Monitor, Projector, Users } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useCampusStore } from '../../store/campusStore'
 import type { Booking, DeviceType, Room } from '../../lib/agentTypes'
 import { DEVICE_NAME } from '../../lib/rooms'
+import { requestRooms } from '../../lib/roomsLoader'
 import { LocateButton } from './LocateButton'
 
 const DEVICE_ICON: Record<DeviceType, LucideIcon> = {
@@ -45,6 +46,12 @@ export function BookingPanel() {
   const [end, setEnd] = useState(defEnd)
   const [voucher, setVoucher] = useState<Booking | null>(null)
 
+  // 预约面板首次打开 = rooms 懒加载触发点(幂等);加载期间空态显示"加载中"
+  useEffect(() => {
+    void requestRooms()
+  }, [])
+  const roomsLoading = rooms.length === 0
+
   const buildingName = useMemo(() => {
     const m = new Map(buildings.map((b) => [b.id, b.name ?? b.id]))
     return (id: string) => m.get(id) ?? id
@@ -74,9 +81,15 @@ export function BookingPanel() {
     <div style={S.root}>
       {candidates.length === 0 ? (
         <div style={S.empty}>
-          暂无候选空间。
-          <br />
-          <span style={{ opacity: 0.6 }}>在指令台试试:「帮我找一个现在空着、有投影、能坐 8 个人的会议室」</span>
+          {roomsLoading ? (
+            <span style={{ opacity: 0.6 }}>房间数据加载中…</span>
+          ) : (
+            <>
+              暂无候选空间。
+              <br />
+              <span style={{ opacity: 0.6 }}>在指令台试试:「帮我找一个现在空着、有投影、能坐 8 个人的会议室」</span>
+            </>
+          )}
         </div>
       ) : (
         <>

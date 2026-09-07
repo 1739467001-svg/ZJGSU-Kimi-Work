@@ -18,7 +18,7 @@ import { useIsMobile, useIsTablet } from './components/ui/useMediaQuery'
 import { useSidebarCollapsed } from './components/ui/useSidebarCollapsed'
 import { loadCampusData, type BakedBuilding, type CampusData } from './lib/campusData'
 import { getBuildingIntro } from './lib/buildingIntro'
-import { loadRooms } from './lib/rooms'
+import { requestRooms } from './lib/roomsLoader'
 import { useCampusStore } from './store/campusStore'
 import { useUIStore } from './store/uiStore'
 import { useSimStore } from './store/simStore'
@@ -318,7 +318,16 @@ export default function App() {
     setDrawer('none')
   }, [isMobile, isTablet])
 
+  // rooms 懒加载触发点①②:首次剖切 / 首次房间选中时才拉 rooms.json。
+  // 幂等(共享同一 Promise);slab/楼层选择器不等 rooms,房间晚一拍出现可接受。
+  const slicedBuildingId = useCampusStore((s) => s.slicedBuildingId)
+  useEffect(() => {
+    if (slicedBuildingId || selectedRoomId) void requestRooms()
+  }, [slicedBuildingId, selectedRoomId])
+
   // 启动序列:数据 → store → Agent 处理器 → 仿真引擎(卸载时停止)
+  // rooms.json(~344KB)不再随启动拉取:仅首次剖切/选房/AI 房间指令/业务面板打开时
+  // 由 requestRooms() 懒加载(幂等,共享同一 Promise),见下方触发 useEffect。
   useEffect(() => {
     let cancelled = false
     let stopSim: (() => void) | undefined
@@ -327,9 +336,6 @@ export default function App() {
         if (cancelled) return
         setData(d)
         useCampusStore.getState().setBuildings(d.buildings)
-        const rooms = await loadRooms()
-        if (cancelled) return
-        useCampusStore.getState().setRooms(rooms)
         useCampusStore.getState().registerCommandHandler(
           createCommandHandler({
             buildings: d.buildings,
@@ -362,8 +368,11 @@ export default function App() {
         if (mp === 'immersive' || mp === 'workbench') useUIStore.getState().setMode(mp)
 
         // 房间级定位深链:?room=r_c305(剖切所在楼 + 选中房间 + 三段式运镜)
+        // 深链本身就是"首次需要 rooms"的触发点:懒加载后再查房间
         const roomId = params.get('room')
         if (roomId) {
+          const rooms = await requestRooms()
+          if (cancelled) return
           const room = rooms.find((r) => r.id === roomId || r.name === roomId)
           if (room) {
             // 直达深链:跳过开场运镜,避免相机所有权竞争吞掉定位飞行

@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle2, Crosshair, Loader2, Wrench } from 'lucide-rea
 import { useCampusStore } from '../../store/campusStore'
 import type { DeviceType, Ticket, TicketStatus } from '../../lib/agentTypes'
 import { DEVICE_NAME } from '../../lib/rooms'
+import { requestRooms } from '../../lib/roomsLoader'
 
 const SPIN_CSS = '@keyframes ct-locate-spin{to{transform:rotate(360deg)}}'
 
@@ -34,6 +35,11 @@ export function RepairPanel() {
   const [deviceId, setDeviceId] = useState<DeviceType | ''>('')
   const [desc, setDesc] = useState('')
   const [justCreated, setJustCreated] = useState<string | null>(null)
+
+  // 报修面板首次打开 = rooms 懒加载触发点(幂等;房间下拉在数据到达后自动填充)
+  useEffect(() => {
+    void requestRooms()
+  }, [])
 
   // 告警联动:红色定位告警时自动填充楼宇/房间
   useEffect(() => {

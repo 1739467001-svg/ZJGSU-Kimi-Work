@@ -27,7 +27,11 @@ interface UIState {
 
 export const useUIStore = create<UIState>()((set) => ({
   mode: 'immersive',
-  quality: 'medium',
+  // 移动端默认低档(dpr≤1、无后处理),桌面维持 medium 不变;用户可随时手切,autoQuality 仍可自动降档
+  quality:
+    typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+      ? 'low'
+      : 'medium',
   autoQuality: true,
   weather: 'clear',
   season: 'summer',
