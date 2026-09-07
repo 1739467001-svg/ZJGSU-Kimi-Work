@@ -146,6 +146,8 @@ function SelectedCard({ building }: { building: BakedBuilding }) {
   const focusCamera = useCampusStore((s) => s.focusCamera)
   const rooms = useCampusStore((s) => s.rooms)
   const isMobile = useIsMobile()
+  /** 移动端细栏展开态(默认收起;换楼/取消选中时由 App 侧 key 重挂载复位) */
+  const [expanded, setExpanded] = useState(false)
   /** 剖切入口一次性引导气泡(localStorage 记住"已看过") */
   const [showSliceHint, setShowSliceHint] = useState(false)
 
@@ -200,19 +202,57 @@ function SelectedCard({ building }: { building: BakedBuilding }) {
     }
   }
 
+  // 移动端:字号整体下调一级(标题 15 / 正文 12),桌面端保持原字号
+  const titleStyle: CSSProperties = isMobile
+    ? { fontSize: 15, fontWeight: 700 }
+    : { fontSize: 17, fontWeight: 700 }
+  const rowStyle = isMobile ? S.rowMobile : S.row
+  const introStyle: CSSProperties = isMobile
+    ? { ...S.intro, fontSize: 12, lineHeight: 1.55 }
+    : S.intro
+
+  // 移动端卡片样式:默认 48px 细栏(overflow 裁掉详情),展开后限高 24% 内部滚动;
+  // max-height/padding 过渡跟随底部抽屉的 ease-out 惯例(见 S.sheet)
+  const cardStyle: CSSProperties = isMobile
+    ? {
+        ...S.cardMobile,
+        maxHeight: expanded ? '24%' : 48,
+        padding: expanded ? '11px 13px' : '0 12px',
+        overflowY: expanded ? 'auto' : 'hidden',
+      }
+    : S.card
+
   return (
-    <div style={isMobile ? S.cardMobile : S.card}>
-      <div style={{ fontSize: 17, fontWeight: 700 }}>{building.name ?? '未命名楼宇'}</div>
-      {building.alias.length > 0 && <div style={S.row}>别名:{building.alias.join('、')}</div>}
-      <div style={S.row}>分区:{ZONE_NAME[building.zone] ?? building.zone}</div>
-      <div style={S.row}>
+    <div style={cardStyle}>
+      {/* 移动端细栏(常显):左楼名 + 关键摘要 + 右端展开/收起提示,点按任意处切换 */}
+      {isMobile && (
+        <div
+          style={{ ...S.cardBarRow, height: expanded ? 26 : 48 }}
+          onClick={() => setExpanded((v) => !v)}
+          role="button"
+          aria-expanded={expanded}
+          aria-label={expanded ? '收起楼宇详情' : '展开楼宇详情'}
+        >
+          <span style={S.cardBarName}>{building.name ?? '未命名楼宇'}</span>
+          <span style={S.cardBarSummary}>
+            {bookable.length > 0
+              ? `可预约 ${bookable.length} 间`
+              : `${building.levels} 层 · ${building.height}m`}
+          </span>
+          <span style={S.cardBarToggle}>{expanded ? '收起 ▼' : '展开 ▲'}</span>
+        </div>
+      )}
+      {!isMobile && <div style={titleStyle}>{building.name ?? '未命名楼宇'}</div>}
+      {building.alias.length > 0 && <div style={rowStyle}>别名:{building.alias.join('、')}</div>}
+      <div style={rowStyle}>分区:{ZONE_NAME[building.zone] ?? building.zone}</div>
+      <div style={rowStyle}>
         功能:{FEATURE_NAME[building.feature] ?? building.feature} · LOD{building.lod}
         {building.hero ? ' · 地标精模' : ''}
       </div>
-      <div style={S.row}>层数:{building.levels} · 高度:{building.height}m</div>
-      <div style={S.intro}>{getBuildingIntro(building)}</div>
+      <div style={rowStyle}>层数:{building.levels} · 高度:{building.height}m</div>
+      <div style={introStyle}>{getBuildingIntro(building)}</div>
       {bookable.length > 0 && (
-        <div style={S.row}>
+        <div style={rowStyle}>
           可预约房间:
           <span style={{ color: '#3fd08c', fontWeight: 600 }}>{bookable.length} 间</span>
           (会议室 · 当前空闲)
@@ -234,7 +274,7 @@ function SelectedCard({ building }: { building: BakedBuilding }) {
         </button>
       )}
       {sliced && (
-        <div style={{ ...S.row, opacity: 0.6 }}>
+        <div style={{ ...rowStyle, opacity: 0.6 }}>
           分层视图:逐层展开,显示各层房间位置(点击空白处亦可退出)
         </div>
       )}
@@ -364,8 +404,12 @@ export default function App() {
       <TimeSwitch />
       <ModeToggle />
       <FloorSelector />
-      {/* 房间卡与楼宇卡互斥:有房间选中时优先房间卡 */}
-      {selectedRoomId ? <RoomInfoCard /> : selected && <SelectedCard building={selected} />}
+      {/* 房间卡与楼宇卡互斥:有房间选中时优先房间卡;key 保证换楼/换房时重挂载,移动端展开态复位为细栏 */}
+      {selectedRoomId ? (
+        <RoomInfoCard key={selectedRoomId} />
+      ) : (
+        selected && <SelectedCard key={selected.id} building={selected} />
+      )}
       {/* 手机端选中卡片时隐藏操作提示,避免贴底元素互相遮挡 */}
       {!(isMobile && (selectedRoomId || selected)) && (
         <div style={isMobile ? (mode === 'immersive' ? S.hintMobile : S.hintMobileWb) : S.hint}>
@@ -550,15 +594,30 @@ const S: Record<string, CSSProperties> = {
     background: '#161b21ee', border: '1px solid #2a323b', borderRadius: 10,
     padding: '13px 15px', boxShadow: '0 8px 30px #00000088', zIndex: 15,
   },
+  // 移动端楼宇卡:不再贴死全宽(左右各 10px),背景调低透明度让背后楼体透出;
+  // 高度/maxHeight/overflow 由 SelectedCard 按 收起细栏/展开详情 两态内联给定
   cardMobile: {
     position: 'absolute',
-    left: 'calc(12px + var(--sal, 0px))', right: 'calc(12px + var(--sar, 0px))',
+    left: 'calc(10px + var(--sal, 0px))', right: 'calc(10px + var(--sar, 0px))',
     bottom: 'calc(84px + var(--sab, 0px))',
-    maxHeight: '38%', overflowY: 'auto',
-    background: '#161b21ee', border: '1px solid #2a323b', borderRadius: 10,
-    padding: '13px 15px', boxShadow: '0 8px 30px #00000088', zIndex: 15,
+    background: '#161b21d8', border: '1px solid #2a323b', borderRadius: 10,
+    boxShadow: '0 8px 30px #00000088', zIndex: 15,
+    transition: 'max-height 0.24s ease-out, padding 0.24s ease-out',
   },
   row: { fontSize: 12.5, marginTop: 6, opacity: 0.85 },
+  rowMobile: { fontSize: 12, marginTop: 5, opacity: 0.85 },
+  // 移动端细栏行:左楼名(可截断)+ 摘要 + 右端展开/收起提示
+  cardBarRow: {
+    display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none',
+  },
+  cardBarName: {
+    fontSize: 15, fontWeight: 700, minWidth: 0,
+    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+  },
+  cardBarSummary: { fontSize: 12, opacity: 0.75, whiteSpace: 'nowrap', flexShrink: 0 },
+  cardBarToggle: {
+    marginLeft: 'auto', fontSize: 11.5, opacity: 0.6, whiteSpace: 'nowrap', flexShrink: 0,
+  },
   intro: {
     fontSize: 12.5, marginTop: 8, paddingTop: 8, opacity: 0.75, lineHeight: 1.6,
     borderTop: '1px solid #2a323b',
