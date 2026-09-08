@@ -184,9 +184,11 @@ const S: Record<string, CSSProperties> = {
   card: {
     position: 'absolute',
     right: 16,
-    bottom: 40,
+    bottom: 16, // 与 SelectedCard 桌面位对齐(右下紧凑卡,避开底部居中指挥条)
     minWidth: 240,
     maxWidth: 300,
+    maxHeight: 'min(52vh, 480px)',
+    overflowY: 'auto',
     background: COLORS.panel,
     border: `1px solid ${COLORS.border}`,
     borderRadius: 10,

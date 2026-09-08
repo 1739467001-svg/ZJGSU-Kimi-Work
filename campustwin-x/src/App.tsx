@@ -14,7 +14,7 @@ import QualitySwitch from './components/ui/QualitySwitch'
 import TimeSwitch from './components/ui/TimeSwitch'
 import FloorSelector from './components/ui/FloorSelector'
 import RoomInfoCard from './components/ui/RoomInfoCard'
-import { useIsMobile, useIsTablet } from './components/ui/useMediaQuery'
+import { useIsMobile, useIsTablet, useMediaQuery } from './components/ui/useMediaQuery'
 import { useSidebarCollapsed } from './components/ui/useSidebarCollapsed'
 import { loadCampusData, type BakedBuilding, type CampusData } from './lib/campusData'
 import { getBuildingIntro } from './lib/buildingIntro'
@@ -46,6 +46,30 @@ const FEATURE_NAME: Record<string, string> = {
 
 /** 剖切引导气泡"已看过"标记的 localStorage key(带项目前缀) */
 const SLICE_HINT_KEY = 'ctx_slice_hint_seen'
+
+/** 上次访问时间戳的 localStorage key(每日首开锁清晨 7:00 用,带项目前缀) */
+const LAST_VISIT_KEY = 'ctx_last_visit'
+/** 超过该间隔视为"每日首开"(24h) */
+const DAILY_FIRST_OPEN_MS = 24 * 60 * 60 * 1000
+/** 首开场景锁定的清晨时刻(7:00,低角度晨光);之后按自动倍速接着流转 */
+const FIRST_OPEN_HOUR = 7
+/** 自动模式倍速(与 TimeSwitch 的 AUTO_SPEED 一致) */
+const AUTO_CLOCK_SPEED = 600
+
+/**
+ * 判定并登记"每日首开":从未访问或距上次访问 >24h → 返回 true。
+ * 每次访问都会刷新时间戳;存储不可用(隐私模式等)时按非首开处理,不打扰现有节奏。
+ */
+function checkDailyFirstOpen(nowMs: number): boolean {
+  try {
+    const last = Number(localStorage.getItem(LAST_VISIT_KEY) ?? 0)
+    const first = !Number.isFinite(last) || last <= 0 || nowMs - last > DAILY_FIRST_OPEN_MS
+    localStorage.setItem(LAST_VISIT_KEY, String(nowMs))
+    return first
+  } catch {
+    return false
+  }
+}
 
 /** 双门是 landmark 无 building 记录:点击后合成伪楼宇卡片(简介走 buildingIntro 的 gate_* 条目) */
 const GATE_PSEUDO: Record<string, { height: number }> = {
@@ -94,6 +118,8 @@ function CommandCapsule({ onSubmitted }: { onSubmitted?: () => void }) {
   const submitCommand = useCampusStore((s) => s.submitCommand)
   const setMode = useUIStore((s) => s.setMode)
   const isMobile = useIsMobile()
+  /** 769–1279px 窄桌面:右下角卡片占右侧 ~352px,指挥条改为左锚定以免与卡片交叠 */
+  const isNarrowDesktop = useMediaQuery('(min-width: 769px) and (max-width: 1279px)')
   const [text, setText] = useState('')
   const [pending, setPending] = useState(false)
 
@@ -113,7 +139,7 @@ function CommandCapsule({ onSubmitted }: { onSubmitted?: () => void }) {
     }
   }
   return (
-    <div style={isMobile ? S.capsuleMobile : S.capsule}>
+    <div style={isMobile ? S.capsuleMobile : isNarrowDesktop ? S.capsuleNarrow : S.capsule}>
       <input
         style={S.capsuleInput}
         value={text}
@@ -209,7 +235,7 @@ function SelectedCard({ building }: { building: BakedBuilding }) {
     : { fontSize: 17, fontWeight: 700 }
   const rowStyle = isMobile ? S.rowMobile : S.row
   const introStyle: CSSProperties = isMobile
-    ? { ...S.intro, fontSize: 12, lineHeight: 1.55 }
+    ? { ...S.intro, fontSize: 12, lineHeight: 1.55, maxHeight: 'none' } // 移动端整卡已限高滚动,简介不再嵌套限高
     : S.intro
 
   // 移动端卡片样式:默认 48px 细栏(overflow 裁掉详情),展开后限高 24% 内部滚动;
@@ -349,6 +375,9 @@ export default function App() {
         if (import.meta.env.DEV) {
           ;(window as unknown as Record<string, unknown>).__campusStore = useCampusStore
           ;(window as unknown as Record<string, unknown>).__campusTap = tapBuilding
+          // 无头截图验证用:读取仿真时刻 / 运行时切档(验证阴影热切换不重置相机)
+          ;(window as unknown as Record<string, unknown>).__simStore = useSimStore
+          ;(window as unknown as Record<string, unknown>).__uiStore = useUIStore
         }
 
         // 演示/调试:URL 锁定仿真时刻,如 ?t=21:30(当日,locked 不流逝)
@@ -358,6 +387,16 @@ export default function App() {
           const d = new Date()
           d.setHours(Number(tm[1]), Number(tm[2]), 0, 0)
           useSimStore.getState().setSimClock({ nowMs: d.getTime(), locked: true })
+        } else if (checkDailyFirstOpen(Date.now())) {
+          // 每日首开(>24h 未访问或首次):场景从当日清晨 7:00 起按自动倍速流转,
+          // 用户不切昼夜模式就看着晨光→正午自然推进(?t= 演示锁时优先,不打扰)
+          const morning = new Date()
+          morning.setHours(FIRST_OPEN_HOUR, 0, 0, 0)
+          useSimStore.getState().setSimClock({
+            nowMs: morning.getTime(),
+            speed: AUTO_CLOCK_SPEED,
+            locked: false,
+          })
         }
         // 画质档 URL 固定:?q=low|medium|high(同时关闭自动降级)
         const qp = params.get('q')
@@ -421,8 +460,8 @@ export default function App() {
       ) : (
         selected && <SelectedCard key={selected.id} building={selected} />
       )}
-      {/* 手机端选中卡片时隐藏操作提示,避免贴底元素互相遮挡 */}
-      {!(isMobile && (selectedRoomId || selected)) && (
+      {/* 选中卡片(楼宇/房间)时隐藏底部居中操作提示,避免与卡片贴近/遮挡(原仅手机端隐藏) */}
+      {!(selectedRoomId || selected) && (
         <div style={isMobile ? (mode === 'immersive' ? S.hintMobile : S.hintMobileWb) : S.hint}>
           {isMobile
             ? '单指旋转 · 双指缩放 · 点按楼宇聚焦 · 双击楼宇快速分层'
@@ -600,8 +639,12 @@ const S: Record<string, CSSProperties> = {
     bottom: 'calc(66px + var(--sab, 0px))',
     fontSize: 11.5, opacity: 0.45, pointerEvents: 'none', whiteSpace: 'nowrap',
   },
+  // 桌面端楼宇卡:右下角紧凑卡(原 minWidth 无 maxWidth,长简介会把卡片撑成
+  // 横跨底部的超宽黑卡,压住居中指挥条)。固定 336 宽 + 限高内部滚动,
+  // 与底部居中指挥条(width≤552)在 ≥1280 宽度下水平互不交叠(1280 下间隙约 12px)
   card: {
-    position: 'absolute', right: 16, bottom: 40, minWidth: 230,
+    position: 'absolute', right: 16, bottom: 16, width: 336,
+    maxWidth: 'calc(100vw - 32px)', maxHeight: 'min(52vh, 460px)', overflowY: 'auto',
     background: '#161b21ee', border: '1px solid #2a323b', borderRadius: 10,
     padding: '13px 15px', boxShadow: '0 8px 30px #00000088', zIndex: 15,
   },
@@ -629,9 +672,10 @@ const S: Record<string, CSSProperties> = {
   cardBarToggle: {
     marginLeft: 'auto', fontSize: 11.5, opacity: 0.6, whiteSpace: 'nowrap', flexShrink: 0,
   },
+  // 简介限高内部滚动,避免长简介把卡片顶高/顶宽(桌面紧凑卡约束的一部分)
   intro: {
     fontSize: 12.5, marginTop: 8, paddingTop: 8, opacity: 0.75, lineHeight: 1.6,
-    borderTop: '1px solid #2a323b',
+    borderTop: '1px solid #2a323b', maxHeight: 132, overflowY: 'auto',
   },
   // 分层展开按钮:暖金强调色(与选中房间/脉冲光柱的 #e8b84b 同族),
   // 未剖切时叠加 ctx-slice-btn 呼吸动画(见 index.css)引导发现入口
@@ -663,7 +707,15 @@ const S: Record<string, CSSProperties> = {
   modeBtnActive: { background: '#3aa7ff22', color: '#3aa7ff', opacity: 1 },
   capsule: {
     position: 'absolute', left: '50%', transform: 'translateX(-50%)', bottom: 42,
-    display: 'flex', alignItems: 'center', gap: 8, width: 'min(620px, 72vw)',
+    display: 'flex', alignItems: 'center', gap: 8, width: 'min(552px, 72vw)',
+    padding: '8px 10px 8px 16px', borderRadius: 999,
+    background: '#161b21ee', border: '1px solid #2a323b',
+    boxShadow: '0 12px 40px #00000099', zIndex: 20,
+  },
+  // 窄桌面(769–1279px):右下卡片占右侧 ~352px,指挥条左锚定 + 右侧让位,互不交叠
+  capsuleNarrow: {
+    position: 'absolute', left: 16, right: 396, bottom: 42,
+    display: 'flex', alignItems: 'center', gap: 8,
     padding: '8px 10px 8px 16px', borderRadius: 999,
     background: '#161b21ee', border: '1px solid #2a323b',
     boxShadow: '0 12px 40px #00000099', zIndex: 20,

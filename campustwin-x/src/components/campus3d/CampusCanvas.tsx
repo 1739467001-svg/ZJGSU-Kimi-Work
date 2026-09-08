@@ -115,16 +115,16 @@ function SceneContent({ data }: { data: CampusData }) {
 
       <PerformanceMonitor onDecline={onDecline} />
 
-      {/* 后处理按档:full = Bloom + SSAO;bloom = 仅 Bloom;none = 无 */}
+      {/* 后处理按档:full = Bloom(强) + SSAO;bloom = 仅 Bloom(弱);none = 无 */}
       {preset.postprocess === 'full' ? (
         <EffectComposer key="full">
-          <Bloom intensity={0.35} luminanceThreshold={0.85} luminanceSmoothing={0.15} mipmapBlur />
+          <Bloom intensity={preset.bloomIntensity} luminanceThreshold={0.85} luminanceSmoothing={0.15} mipmapBlur />
           <SSAO samples={16} radius={0.09} intensity={20} luminanceInfluence={0.5} />
           <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
         </EffectComposer>
       ) : preset.postprocess === 'bloom' ? (
         <EffectComposer key="bloom">
-          <Bloom intensity={0.35} luminanceThreshold={0.85} luminanceSmoothing={0.15} mipmapBlur />
+          <Bloom intensity={preset.bloomIntensity} luminanceThreshold={0.85} luminanceSmoothing={0.15} mipmapBlur />
           <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
         </EffectComposer>
       ) : null}
@@ -139,6 +139,9 @@ export default function CampusCanvas({ data }: { data: CampusData }) {
   return (
     <Canvas
       dpr={resolvePixelRatio(quality)}
+      // 阴影管线常开(占位零成本):是否有阴影由 SkyRig 太阳灯按 preset.shadows 开关 castShadow,
+      // 避免运行时切换 Canvas.shadows 导致整树材质重编译闪烁/相机状态丢失
+      shadows
       camera={{ position: [420, 480, 620], fov: 42, near: 1, far: 6000 }}
       onPointerMissed={() => {
         selectBuilding(null)

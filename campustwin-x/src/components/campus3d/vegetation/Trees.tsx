@@ -6,6 +6,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { TreePoint } from '../../../lib/campusData'
 import { useUIStore } from '../../../store/uiStore'
 import type { Season } from '../../../store/uiStore'
+import { getQualityPreset } from '../../../lib/quality'
 
 export type SeasonPalette = Record<Season, string>
 
@@ -122,12 +123,15 @@ export default function Trees({ points, palette }: TreesProps) {
   const broadGeo = useMemo(createBroadleafGeometry, [])
   const coniferGeo = useMemo(createConiferGeometry, [])
 
-  // 一次性布点:确定性拆分阔叶/针叶(约 72% / 28%);quality=low 只取偶数索引(50%)
+  // 一次性布点:确定性拆分阔叶/针叶(约 72% / 28%);
+  // 密度按画质档 detailScale(高 1.0 / 中 0.7 / 低 0.4)阈值采样——
+  // 同一点位哈希嵌套子集,切档只稀疏/增密,已有树不位移
   const { broadleaf, conifer } = useMemo(() => {
+    const detailScale = getQualityPreset(quality).detailScale
     const broad: Placement[] = []
     const con: Placement[] = []
     for (let i = 0; i < points.length; i++) {
-      if (quality === 'low' && i % 2 !== 0) continue
+      if (seededRand(i * 13 + 5) >= detailScale) continue
       const [x, z, s] = points[i]
       const placement: Placement = { x, z, scale: s, rotY: seededRand(i + 1000) * Math.PI * 2 }
       if (seededRand(i * 7 + 3) < 0.28) con.push(placement)
@@ -160,6 +164,8 @@ export default function Trees({ points, palette }: TreesProps) {
         args={[undefined, undefined, broadleaf.length]}
         geometry={broadGeo}
         frustumCulled={false}
+        castShadow
+        receiveShadow
       >
         <meshStandardMaterial vertexColors color="#ffffff" roughness={0.9} metalness={0} />
       </instancedMesh>
@@ -169,6 +175,8 @@ export default function Trees({ points, palette }: TreesProps) {
         args={[undefined, undefined, conifer.length]}
         geometry={coniferGeo}
         frustumCulled={false}
+        castShadow
+        receiveShadow
       >
         <meshStandardMaterial vertexColors color="#ffffff" roughness={0.9} metalness={0} />
       </instancedMesh>

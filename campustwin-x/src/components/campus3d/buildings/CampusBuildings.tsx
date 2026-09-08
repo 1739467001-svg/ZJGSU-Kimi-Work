@@ -164,6 +164,8 @@ export default function CampusBuildings({
           <mesh
             key={b.id}
             geometry={geometry}
+            castShadow
+            receiveShadow
             onClick={(e) => {
               e.stopPropagation()
               onSelect(b)
@@ -186,21 +188,21 @@ export default function CampusBuildings({
 
       {merged.inside && (
         <group>
-          <mesh geometry={merged.inside.cap}>
+          <mesh geometry={merged.inside.cap} castShadow receiveShadow>
             <meshStandardMaterial color={roofColor('unknown')} roughness={0.95} />
           </mesh>
-          <mesh geometry={merged.inside.side}>
+          <mesh geometry={merged.inside.side} castShadow receiveShadow>
             <FacadeMaterial feature="unknown" levels={MERGED_LEVELS} nightFactor={nightFactor} />
           </mesh>
         </group>
       )}
       {merged.outside && (
         <group>
-          <mesh geometry={merged.outside.cap}>
+          <mesh geometry={merged.outside.cap} castShadow receiveShadow>
             {/* 原 #3a4048 近死黑,提亮为深灰蓝(仍低于校内楼,保留校外背景层次) */}
             <meshStandardMaterial color="#4b5763" roughness={0.95} />
           </mesh>
-          <mesh geometry={merged.outside.side}>
+          <mesh geometry={merged.outside.side} castShadow receiveShadow>
             {/* 原 #5a626c 偏暗,同步提亮为灰蓝 */}
             <meshStandardMaterial color="#6b7581" roughness={0.95} />
           </mesh>

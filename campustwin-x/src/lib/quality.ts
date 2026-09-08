@@ -15,25 +15,32 @@ export interface QualityPreset {
   /** 后处理档位(@react-three/postprocessing 映射) */
   postprocess: PostprocessTier
   bloom: boolean
+  /** Bloom 强度(无后处理档忽略;高/中拉开观感差异) */
+  bloomIntensity: number
   ssao: boolean
   shadows: boolean
   /** 场景细节缩放建议(树木/粒子密度系数,0..1) */
   detailScale: number
 }
 
-/** 三档配置表:高 = pixelRatio≤2 + bloom + ssao;中 = 1.5 + bloom;低 = 1 + 无后处理 */
+/**
+ * 三档配置表(肉眼可见阶梯差异):
+ * 高 = pixelRatio≤2 + Bloom(强) + SSAO + 实时阴影 + 100% 树木;
+ * 中 = 1.5 + Bloom(弱) + 无阴影 + ~70% 树木;
+ * 低 = 1 + 无后处理 + 无阴影 + ~40% 树木(移动端默认)。
+ */
 export const QUALITY_PRESETS: Record<Quality, QualityPreset> = {
   high: {
     quality: 'high', label: '高', pixelRatioCap: 2,
-    postprocess: 'full', bloom: true, ssao: true, shadows: true, detailScale: 1,
+    postprocess: 'full', bloom: true, bloomIntensity: 0.5, ssao: true, shadows: true, detailScale: 1,
   },
   medium: {
     quality: 'medium', label: '中', pixelRatioCap: 1.5,
-    postprocess: 'bloom', bloom: true, ssao: false, shadows: true, detailScale: 0.7,
+    postprocess: 'bloom', bloom: true, bloomIntensity: 0.22, ssao: false, shadows: false, detailScale: 0.7,
   },
   low: {
     quality: 'low', label: '低', pixelRatioCap: 1,
-    postprocess: 'none', bloom: false, ssao: false, shadows: false, detailScale: 0.4,
+    postprocess: 'none', bloom: false, bloomIntensity: 0, ssao: false, shadows: false, detailScale: 0.4,
   },
 }
 

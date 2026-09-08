@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import type { ThreeEvent } from '@react-three/fiber'
 import type { BakedBuilding, BakedLandmark } from '../../../lib/campusData'
@@ -51,11 +51,23 @@ interface HeroBuildingsProps {
  * SelectedCard 据此显示简介卡)+ 退出旧剖切;不做相机聚焦(CameraDirector 无 landmark 聚焦)。
  */
 export default function HeroBuildings({ buildings, landmarks, nightFactor, onSelect }: HeroBuildingsProps) {
+  const rootRef = useRef<THREE.Group>(null)
   const byId = useMemo(() => {
     const m = new Map<string, BakedBuilding>()
     for (const b of buildings) m.set(b.id, b)
     return m
   }, [buildings])
+
+  // 精模群投/接收阴影:集中到根 group 一次遍历,各子件(WentiCenter/Zonghe/…)零改动;
+  // 是否真正渲染阴影由 SkyRig 太阳灯按画质档 castShadow 决定,此处只标记参与
+  useEffect(() => {
+    rootRef.current?.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) {
+        o.castShadow = true
+        o.receiveShadow = true
+      }
+    })
+  }, [])
   const wentiMain = byId.get(WENTI_MAIN_ID)
   const wentiAnnex = byId.get(WENTI_ANNEX_ID)
   const zonghe = byId.get(ZONGHE_ID)
@@ -96,7 +108,7 @@ export default function HeroBuildings({ buildings, landmarks, nightFactor, onSel
   }, [])
 
   return (
-    <group name="hero-buildings">
+    <group name="hero-buildings" ref={rootRef}>
       {wentiMain ? (
         <group onClick={clickBuilding(wentiMain)}>
           <WentiCenter building={wentiMain} nightFactor={nightFactor} />

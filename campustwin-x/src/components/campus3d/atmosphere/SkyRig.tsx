@@ -7,6 +7,8 @@ import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { Sky, Stars } from '@react-three/drei'
 import { useSimStore } from '../../../store/simStore'
+import { useUIStore } from '../../../store/uiStore'
+import { getQualityPreset } from '../../../lib/quality'
 import { nightFactor, sunAltitudeDeg, sunDirection } from '../../../lib/sun'
 
 const SUN_HIGH = new THREE.Color('#fff4e2') // 正午日光
@@ -42,6 +44,9 @@ export default function SkyRig({ starCount = 4000 }: { starCount?: number }) {
   const hemiRef = useRef<THREE.HemisphereLight>(null)
   const skyRef = useRef<THREE.Mesh<THREE.BoxGeometry, THREE.ShaderMaterial>>(null)
   const starsRef = useRef<THREE.Points>(null)
+  // 仅高档投实时阴影(preset.shadows);切换 castShadow 会触发 three 灯光状态版本变更,
+  // 材质自动重编译,无需重挂 Canvas(相机/选中状态保持)
+  const castShadow = useUIStore((s) => getQualityPreset(s.quality).shadows)
 
   // drei Stars 的 StarfieldMaterial 无全局透明度,注入 globalFade uniform 实现星空渐入渐出
   useEffect(() => {
@@ -181,7 +186,23 @@ export default function SkyRig({ starCount = 4000 }: { starCount?: number }) {
 
   return (
     <group>
-      <directionalLight ref={sunRef} position={[400, 600, 300]} intensity={1.6} />
+      {/* 阴影相机覆盖全校(建筑分布约 x -1170..1030 / z -990..1450,光源在 800m 处);
+          2048 贴图 ≈1.5m/texel,配 normalBias 压自遮挡条纹;仅高档 castShadow */}
+      <directionalLight
+        ref={sunRef}
+        position={[400, 600, 300]}
+        intensity={1.6}
+        castShadow={castShadow}
+        shadow-mapSize={[2048, 2048]}
+        shadow-camera-left={-1500}
+        shadow-camera-right={1500}
+        shadow-camera-top={1500}
+        shadow-camera-bottom={-1500}
+        shadow-camera-near={10}
+        shadow-camera-far={4000}
+        shadow-bias={-0.0002}
+        shadow-normalBias={1.5}
+      />
       {/* 初始值与白天端点对齐(useFrame 首帧即逐帧覆盖,仅为挂载一致性) */}
       <hemisphereLight ref={hemiRef} args={['#b7d4ec', '#8f8875', 1.15]} />
       <Sky

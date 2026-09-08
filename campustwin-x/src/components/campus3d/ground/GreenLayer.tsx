@@ -58,7 +58,7 @@ export default function GreenLayer({ green }: { green: BakedGreen[] }) {
 
   if (!geometry) return null
   return (
-    <mesh geometry={geometry}>
+    <mesh geometry={geometry} receiveShadow>
       <meshStandardMaterial
         ref={matRef}
         vertexColors

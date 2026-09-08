@@ -172,7 +172,7 @@ export default function RoadNetwork({ roads }: { roads: BakedRoad[] }) {
 
   if (!geometry) return null
   return (
-    <mesh geometry={geometry}>
+    <mesh geometry={geometry} receiveShadow>
       <meshStandardMaterial
         ref={matRef}
         vertexColors
