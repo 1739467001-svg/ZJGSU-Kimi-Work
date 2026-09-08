@@ -1,0 +1,305 @@
+{
+  "label": "before",
+  "scenarios": [
+    {
+      "scenario": "wenke-cold",
+      "building": "文科实验楼",
+      "longTaskCount": 2,
+      "longTaskTotalMs": 4094,
+      "worstLongTaskMs": 4015,
+      "fpsFirst2s": 0,
+      "maxFrameGapMs": 0,
+      "frameCount2s": 1,
+      "wallMs": 4805,
+      "rooms": 510,
+      "topJs": [
+        {
+          "fn": "pointInPolygon @floorLayout.ts",
+          "ms": 1063
+        },
+        {
+          "fn": "distPointToSeg @floorLayout.ts",
+          "ms": 740
+        },
+        {
+          "fn": "pointToPolyEdgeDist @floorLayout.ts",
+          "ms": 202
+        },
+        {
+          "fn": "cellLegalInPolygon @floorLayout.ts",
+          "ms": 70.4
+        },
+        {
+          "fn": "(garbage collector) @",
+          "ms": 55.2
+        },
+        {
+          "fn": "(匿名) @floorLayout.ts",
+          "ms": 50.2
+        },
+        {
+          "fn": "relocate @floorLayout.ts",
+          "ms": 45.6
+        },
+        {
+          "fn": "(program) @",
+          "ms": 42.4
+        },
+        {
+          "fn": "rectsOverlap @floorLayout.ts",
+          "ms": 22.2
+        },
+        {
+          "fn": "snapToEdge @floorLayout.ts",
+          "ms": 10.6
+        },
+        {
+          "fn": "exports.jsxDEV @react_jsx-dev-runtime.js?v=17675787",
+          "ms": 6.8
+        },
+        {
+          "fn": "slice @CampusBuildings.tsx",
+          "ms": 2.8
+        }
+      ],
+      "longTasks": [
+        {
+          "start": 10,
+          "dur": 79
+        },
+        {
+          "start": 93,
+          "dur": 4015
+        }
+      ]
+    },
+    {
+      "scenario": "wenke-warm",
+      "building": "文科实验楼",
+      "longTaskCount": 3,
+      "longTaskTotalMs": 4675,
+      "worstLongTaskMs": 4308,
+      "fpsFirst2s": 0,
+      "maxFrameGapMs": 0,
+      "frameCount2s": 1,
+      "wallMs": 7968,
+      "rooms": 510,
+      "topJs": [
+        {
+          "fn": "(idle) @",
+          "ms": 1037.6
+        },
+        {
+          "fn": "pointInPolygon @floorLayout.ts",
+          "ms": 976.2
+        },
+        {
+          "fn": "distPointToSeg @floorLayout.ts",
+          "ms": 679.2
+        },
+        {
+          "fn": "pointToPolyEdgeDist @floorLayout.ts",
+          "ms": 178
+        },
+        {
+          "fn": "getProgramInfoLog @",
+          "ms": 94.2
+        },
+        {
+          "fn": "(匿名) @floorLayout.ts",
+          "ms": 78
+        },
+        {
+          "fn": "(garbage collector) @",
+          "ms": 68
+        },
+        {
+          "fn": "cellLegalInPolygon @floorLayout.ts",
+          "ms": 66.2
+        },
+        {
+          "fn": "rectsOverlap @floorLayout.ts",
+          "ms": 50.8
+        },
+        {
+          "fn": "relocate @floorLayout.ts",
+          "ms": 42.6
+        },
+        {
+          "fn": "(program) @",
+          "ms": 40.6
+        },
+        {
+          "fn": "snapToEdge @floorLayout.ts",
+          "ms": 9.4
+        }
+      ],
+      "longTasks": [
+        {
+          "start": 0,
+          "dur": 4308
+        },
+        {
+          "start": 4320,
+          "dur": 109
+        },
+        {
+          "start": 4430,
+          "dur": 258
+        }
+      ]
+    },
+    {
+      "scenario": "zonghe-cold",
+      "building": "综合大楼",
+      "longTaskCount": 3,
+      "longTaskTotalMs": 7425,
+      "worstLongTaskMs": 7006,
+      "fpsFirst2s": 0,
+      "maxFrameGapMs": 0,
+      "frameCount2s": 1,
+      "wallMs": 10726,
+      "rooms": 510,
+      "topJs": [
+        {
+          "fn": "pointInPolygon @floorLayout.ts",
+          "ms": 1800.4
+        },
+        {
+          "fn": "distPointToSeg @floorLayout.ts",
+          "ms": 1515.4
+        },
+        {
+          "fn": "(idle) @",
+          "ms": 1006
+        },
+        {
+          "fn": "pointToPolyEdgeDist @floorLayout.ts",
+          "ms": 411
+        },
+        {
+          "fn": "getProgramInfoLog @",
+          "ms": 120.4
+        },
+        {
+          "fn": "(garbage collector) @",
+          "ms": 103.2
+        },
+        {
+          "fn": "(program) @",
+          "ms": 86.4
+        },
+        {
+          "fn": "cellLegalInPolygon @floorLayout.ts",
+          "ms": 77.8
+        },
+        {
+          "fn": "tryPlace @floorLayout.ts",
+          "ms": 43.8
+        },
+        {
+          "fn": "(匿名) @floorLayout.ts",
+          "ms": 20
+        },
+        {
+          "fn": "exports.jsxDEV @react_jsx-dev-runtime.js?v=17675787",
+          "ms": 15.8
+        },
+        {
+          "fn": "rectsOverlap @floorLayout.ts",
+          "ms": 9.6
+        }
+      ],
+      "longTasks": [
+        {
+          "start": 0,
+          "dur": 7006
+        },
+        {
+          "start": 7021,
+          "dur": 89
+        },
+        {
+          "start": 7112,
+          "dur": 330
+        }
+      ]
+    },
+    {
+      "scenario": "zonghe-warm",
+      "building": "综合大楼",
+      "longTaskCount": 3,
+      "longTaskTotalMs": 8561,
+      "worstLongTaskMs": 7780,
+      "fpsFirst2s": 0,
+      "maxFrameGapMs": 0,
+      "frameCount2s": 0,
+      "wallMs": 15156,
+      "rooms": 510,
+      "topJs": [
+        {
+          "fn": "pointInPolygon @floorLayout.ts",
+          "ms": 1471.6
+        },
+        {
+          "fn": "distPointToSeg @floorLayout.ts",
+          "ms": 1284.4
+        },
+        {
+          "fn": "(idle) @",
+          "ms": 950
+        },
+        {
+          "fn": "getProgramInfoLog @",
+          "ms": 349.4
+        },
+        {
+          "fn": "pointToPolyEdgeDist @floorLayout.ts",
+          "ms": 321.8
+        },
+        {
+          "fn": "(garbage collector) @",
+          "ms": 98
+        },
+        {
+          "fn": "(program) @",
+          "ms": 66.6
+        },
+        {
+          "fn": "cellLegalInPolygon @floorLayout.ts",
+          "ms": 60.8
+        },
+        {
+          "fn": "tryPlace @floorLayout.ts",
+          "ms": 35.4
+        },
+        {
+          "fn": "exports.jsxDEV @react_jsx-dev-runtime.js?v=17675787",
+          "ms": 20.2
+        },
+        {
+          "fn": "rectsOverlap @floorLayout.ts",
+          "ms": 12.2
+        },
+        {
+          "fn": "(匿名) @floorLayout.ts",
+          "ms": 9.8
+        }
+      ],
+      "longTasks": [
+        {
+          "start": 0,
+          "dur": 7780
+        },
+        {
+          "start": 7810,
+          "dur": 114
+        },
+        {
+          "start": 7925,
+          "dur": 667
+        }
+      ]
+    }
+  ]
+}

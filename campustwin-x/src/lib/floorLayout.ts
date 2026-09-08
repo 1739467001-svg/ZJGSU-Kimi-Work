@@ -1037,6 +1037,41 @@ function legalizeCellsToPolygon(
   return result
 }
 
+// ---------------------------------------------------------------------------
+// 布局结果缓存(剖切流畅度改造):
+// 同一 rooms 数组引用(store 不可变更新)下,(buildingId, floor) 的结果恒定,
+// 用 WeakMap 挂在 rooms 数组上,rooms 更新自动失效、旧缓存随数组 GC。
+// 入参约定为【全量 rooms】,内部按 buildingId 过滤——BuildingSlice / FloorSelector /
+// CameraDirector / AlarmPulse 四处调用方共享同一份缓存,剖切瞬间只算一遍。
+// 另:顺带统一了口径——FloorSelector 旧实现把全量 rooms 直接传给 computeFloorLayout
+// (不过滤 buildingId),楼层房间数被其他楼污染;走缓存包装后各调用方结果一致。
+// ---------------------------------------------------------------------------
+const layoutCache = new WeakMap<Room[], Map<string, FloorLayout>>()
+
+/** computeFloorLayout 的缓存版:allRooms 传 store 全量数组(引用稳定才有命中) */
+export function getCachedFloorLayout(
+  building: BakedBuilding,
+  allRooms: Room[],
+  floor: number,
+): FloorLayout {
+  let m = layoutCache.get(allRooms)
+  if (!m) {
+    m = new Map()
+    layoutCache.set(allRooms, m)
+  }
+  const key = `${building.id}:${floor}`
+  let layout = m.get(key)
+  if (!layout) {
+    layout = computeFloorLayout(
+      building,
+      allRooms.filter((r) => r.buildingId === building.id),
+      floor,
+    )
+    m.set(key, layout)
+  }
+  return layout
+}
+
 /** 计算某楼某层的平面布局(确定性;同一输入恒同输出) */
 export function computeFloorLayout(
   building: BakedBuilding,

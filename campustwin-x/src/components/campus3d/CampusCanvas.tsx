@@ -15,6 +15,7 @@ import { getQualityPreset, resolvePixelRatio, useAutoQuality } from '../../lib/q
 import CampusGround from './ground/CampusGround'
 import CampusBuildings from './buildings/CampusBuildings'
 import HeroBuildings, { HERO_BUILDING_IDS } from './hero/HeroBuildings'
+import { tapBuilding } from '../../lib/buildingTap'
 import Atmosphere from './atmosphere/Atmosphere'
 import { useNightFactorLive } from './atmosphere/WindowLights'
 import WeatherFX from './weather/WeatherFX'
@@ -45,9 +46,6 @@ function SceneContent({ data }: { data: CampusData }) {
   const highlightedIds = useCampusStore((s) => s.highlightedBuildingIds)
   const alarmId = useCampusStore((s) => s.alarmBuildingId)
   const slicedId = useCampusStore((s) => s.slicedBuildingId)
-  const selectBuilding = useCampusStore((s) => s.selectBuilding)
-  const focusCamera = useCampusStore((s) => s.focusCamera)
-  const setSlicedBuilding = useCampusStore((s) => s.setSlicedBuilding)
 
   // 剖层期间隐藏原楼(BuildingSlice 自绘剖层视图);hero 楼从灰盒渲染中剔除,避免与精模重叠
   const visible = useMemo(
@@ -56,12 +54,8 @@ function SceneContent({ data }: { data: CampusData }) {
   )
   const graybox = useMemo(() => visible.filter((b) => !HERO_SET.has(b.id)), [visible])
 
-  const onSelect = (b: BakedBuilding) => {
-    selectBuilding(b.id)
-    focusCamera({ type: 'building', id: b.id })
-    // 切换选中其他楼(灰盒或 hero 精模)即退出旧楼的分层视图
-    if (slicedId) setSlicedBuilding(null)
-  }
+  // 点按统一入口:单击=选中+聚焦;300ms 内再点同楼=双击 → 叠加剖切开关(见 buildingTap)
+  const onSelect = (b: BakedBuilding) => tapBuilding(b)
 
   return (
     <>

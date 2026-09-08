@@ -1,0 +1,305 @@
+{
+  "label": "after",
+  "scenarios": [
+    {
+      "scenario": "wenke-cold",
+      "building": "文科实验楼",
+      "longTaskCount": 3,
+      "longTaskTotalMs": 1142,
+      "worstLongTaskMs": 704,
+      "fpsFirst2s": 6.6,
+      "maxFrameGapMs": 700,
+      "frameCount2s": 14,
+      "wallMs": 3669,
+      "rooms": 510,
+      "topJs": [
+        {
+          "fn": "(idle) @",
+          "ms": 1225
+        },
+        {
+          "fn": "getProgramInfoLog @",
+          "ms": 660
+        },
+        {
+          "fn": "getShaderInfoLog @",
+          "ms": 20.2
+        },
+        {
+          "fn": "exports.jsxDEV @react_jsx-dev-runtime.js?v=17675787",
+          "ms": 13
+        },
+        {
+          "fn": "(program) @",
+          "ms": 5.6
+        },
+        {
+          "fn": "(garbage collector) @",
+          "ms": 3.2
+        },
+        {
+          "fn": "setValue @three.module-omPc_b5b.js?v=17675787",
+          "ms": 2.8
+        },
+        {
+          "fn": "pointInPolygon @floorLayout.ts",
+          "ms": 2.2
+        },
+        {
+          "fn": "slice @CampusBuildings.tsx",
+          "ms": 2
+        },
+        {
+          "fn": "run @",
+          "ms": 1.8
+        },
+        {
+          "fn": "WebGLRenderer.renderBufferDirect @three.module-omPc_b5b.js?v=17675787",
+          "ms": 1.8
+        },
+        {
+          "fn": "pointToPolyEdgeDist @floorLayout.ts",
+          "ms": 1.6
+        }
+      ],
+      "longTasks": [
+        {
+          "start": 6,
+          "dur": 54
+        },
+        {
+          "start": 135,
+          "dur": 384
+        },
+        {
+          "start": 522,
+          "dur": 704
+        }
+      ]
+    },
+    {
+      "scenario": "wenke-warm",
+      "building": "文科实验楼",
+      "longTaskCount": 3,
+      "longTaskTotalMs": 862,
+      "worstLongTaskMs": 378,
+      "fpsFirst2s": 5.9,
+      "maxFrameGapMs": 500,
+      "frameCount2s": 12,
+      "wallMs": 3615,
+      "rooms": 510,
+      "topJs": [
+        {
+          "fn": "(idle) @",
+          "ms": 1434
+        },
+        {
+          "fn": "getProgramInfoLog @",
+          "ms": 439.8
+        },
+        {
+          "fn": "exports.jsxDEV @react_jsx-dev-runtime.js?v=17675787",
+          "ms": 12.4
+        },
+        {
+          "fn": "getShaderInfoLog @",
+          "ms": 11
+        },
+        {
+          "fn": "(program) @",
+          "ms": 3.4
+        },
+        {
+          "fn": "setProgram @three.module-omPc_b5b.js?v=17675787",
+          "ms": 2
+        },
+        {
+          "fn": "(garbage collector) @",
+          "ms": 1.8
+        },
+        {
+          "fn": "slice @CampusBuildings.tsx",
+          "ms": 1.6
+        },
+        {
+          "fn": "run @",
+          "ms": 1.6
+        },
+        {
+          "fn": "WebGLRenderer.renderBufferDirect @three.module-omPc_b5b.js?v=17675787",
+          "ms": 1.6
+        },
+        {
+          "fn": "ReactElement @react_jsx-dev-runtime.js?v=17675787",
+          "ms": 1
+        },
+        {
+          "fn": "getProgramCacheKey @three.module-omPc_b5b.js?v=17675787",
+          "ms": 1
+        }
+      ],
+      "longTasks": [
+        {
+          "start": 215,
+          "dur": 311
+        },
+        {
+          "start": 529,
+          "dur": 378
+        },
+        {
+          "start": 1277,
+          "dur": 173
+        }
+      ]
+    },
+    {
+      "scenario": "zonghe-cold",
+      "building": "综合大楼",
+      "longTaskCount": 2,
+      "longTaskTotalMs": 271,
+      "worstLongTaskMs": 217,
+      "fpsFirst2s": 8.1,
+      "maxFrameGapMs": 516.6,
+      "frameCount2s": 16,
+      "wallMs": 3612,
+      "rooms": 510,
+      "topJs": [
+        {
+          "fn": "(idle) @",
+          "ms": 1595.4
+        },
+        {
+          "fn": "getProgramInfoLog @",
+          "ms": 114.2
+        },
+        {
+          "fn": "exports.jsxDEV @react_jsx-dev-runtime.js?v=17675787",
+          "ms": 51.2
+        },
+        {
+          "fn": "(program) @",
+          "ms": 5.2
+        },
+        {
+          "fn": "WebGLRenderer.renderBufferDirect @three.module-omPc_b5b.js?v=17675787",
+          "ms": 3.8
+        },
+        {
+          "fn": "ReactElement @react_jsx-dev-runtime.js?v=17675787",
+          "ms": 3.6
+        },
+        {
+          "fn": "loop @simEngine.ts",
+          "ms": 3.4
+        },
+        {
+          "fn": "setProgram @three.module-omPc_b5b.js?v=17675787",
+          "ms": 3.2
+        },
+        {
+          "fn": "run @",
+          "ms": 2.8
+        },
+        {
+          "fn": "(garbage collector) @",
+          "ms": 2.6
+        },
+        {
+          "fn": "setValueV3f @three.module-omPc_b5b.js?v=17675787",
+          "ms": 2.2
+        },
+        {
+          "fn": "updateMatrixWorld @three.module-omPc_b5b.js?v=17675787",
+          "ms": 2.2
+        }
+      ],
+      "longTasks": [
+        {
+          "start": 9,
+          "dur": 54
+        },
+        {
+          "start": 971,
+          "dur": 217
+        }
+      ]
+    },
+    {
+      "scenario": "zonghe-warm",
+      "building": "综合大楼",
+      "longTaskCount": 3,
+      "longTaskTotalMs": 745,
+      "worstLongTaskMs": 386,
+      "fpsFirst2s": 10.5,
+      "maxFrameGapMs": 383.3,
+      "frameCount2s": 16,
+      "wallMs": 3600,
+      "rooms": 510,
+      "topJs": [
+        {
+          "fn": "(idle) @",
+          "ms": 1476.2
+        },
+        {
+          "fn": "getProgramInfoLog @",
+          "ms": 427.2
+        },
+        {
+          "fn": "exports.jsxDEV @react_jsx-dev-runtime.js?v=17675787",
+          "ms": 49.8
+        },
+        {
+          "fn": "(program) @",
+          "ms": 4.4
+        },
+        {
+          "fn": "run @",
+          "ms": 4.4
+        },
+        {
+          "fn": "ReactElement @react_jsx-dev-runtime.js?v=17675787",
+          "ms": 3.8
+        },
+        {
+          "fn": "splitGeometry @CampusBuildings.tsx",
+          "ms": 2.2
+        },
+        {
+          "fn": "fo @react-three-fiber.esm-CH0fm1Th.js?v=1767",
+          "ms": 2.2
+        },
+        {
+          "fn": "getShaderInfoLog @",
+          "ms": 2.2
+        },
+        {
+          "fn": "updateMatrixWorld @three.module-omPc_b5b.js?v=17675787",
+          "ms": 2.2
+        },
+        {
+          "fn": "setValue @three.module-omPc_b5b.js?v=17675787",
+          "ms": 1.8
+        },
+        {
+          "fn": "setProgram @three.module-omPc_b5b.js?v=17675787",
+          "ms": 1.8
+        }
+      ],
+      "longTasks": [
+        {
+          "start": 972,
+          "dur": 168
+        },
+        {
+          "start": 1174,
+          "dur": 386
+        },
+        {
+          "start": 2845,
+          "dur": 191
+        }
+      ]
+    }
+  ]
+}

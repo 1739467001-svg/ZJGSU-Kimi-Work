@@ -9,7 +9,7 @@ import type { CSSProperties } from 'react'
 import { FoldVertical } from 'lucide-react'
 import { useCampusStore } from '../../store/campusStore'
 import { useUIStore } from '../../store/uiStore'
-import { computeFloorLayout } from '../../lib/floorLayout'
+import { getCachedFloorLayout } from '../../lib/floorLayout'
 import { useIsMobile } from './useMediaQuery'
 
 const COLORS = {
@@ -35,11 +35,12 @@ export default function FloorSelector() {
     : null
 
   // 该楼各层房间数(布局引擎保证每房一格,cells.length 即该层房间数)
+  // 走共享缓存:与 BuildingSlice 同一份结果,剖切瞬间零重复计算
   const roomCountByFloor = useMemo(() => {
     const m = new Map<number, number>()
     if (!building) return m
     for (let f = 1; f <= building.levels; f++) {
-      m.set(f, computeFloorLayout(building, rooms, f).cells.length)
+      m.set(f, getCachedFloorLayout(building, rooms, f).cells.length)
     }
     return m
   }, [building, rooms])

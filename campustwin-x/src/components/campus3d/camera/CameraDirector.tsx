@@ -8,7 +8,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useCampusStore } from '../../../store/campusStore'
 import type { CameraFocus, Room } from '../../../lib/agentTypes'
 import type { BakedBuilding } from '../../../lib/campusData'
-import { computeFloorLayout } from '../../../lib/floorLayout'
+import { getCachedFloorLayout } from '../../../lib/floorLayout'
 import type { CameraBusRef, OrbitControlsRef } from './CameraRig'
 
 // ---------- 自写数学工具(不用库) ----------
@@ -177,7 +177,7 @@ function topdownFlight(fromPos: THREE.Vector3, fromTgt: THREE.Vector3, duration 
 function roomLocateFlight(
   room: Room,
   b: BakedBuilding,
-  buildingRooms: Room[],
+  allRooms: Room[],
   fromPos: THREE.Vector3,
   fromTgt: THREE.Vector3,
   ensureSlice: () => void,
@@ -200,8 +200,8 @@ function roomLocateFlight(
   const fIdx = Math.min(Math.max(room.floor, 1), levels)
   const floorY = (fIdx - 1) * (slabH + SLICE_EXPAND_GAP) + slabH
 
-  // M4 契约:floorLayout 单元格(局部米制)→ 世界坐标
-  const cell = computeFloorLayout(b, buildingRooms, room.floor).cells.find((c) => c.roomId === room.id) ?? null
+  // M4 契约:floorLayout 单元格(局部米制)→ 世界坐标(共享缓存,allRooms 需引用稳定)
+  const cell = getCachedFloorLayout(b, allRooms, room.floor).cells.find((c) => c.roomId === room.id) ?? null
   const cx = bx + (cell ? cell.x : 0)
   const cz = bz + (cell ? cell.z : 0)
   const faceW = cell ? Math.max(cell.w, cell.d) : 7.2
@@ -316,13 +316,13 @@ export default function CameraDirector({ bus, controlsRef }: CameraDirectorProps
       const room = state.rooms.find((x) => x.id === focus.id)
       const b = room ? state.buildings.find((x) => x.id === room.buildingId) : undefined
       if (room && b) {
-        const buildingRooms = state.rooms.filter((r) => r.buildingId === b.id)
         // 段②开始时确保该楼已分层剖切(他人组件 BuildingSlice 负责展开动画)
         const ensureSlice = () => {
           const s = useCampusStore.getState()
           if (s.slicedBuildingId !== b.id) s.setSlicedBuilding(b.id)
         }
-        const f = roomLocateFlight(room, b, buildingRooms, a.pos, a.tgt, ensureSlice)
+        // 传 store 全量 rooms(引用稳定,布局缓存才能命中)
+        const f = roomLocateFlight(room, b, state.rooms, a.pos, a.tgt, ensureSlice)
         // 序列期间不调 finish():locatingRoomId 需保留到运镜结束/被打断时统一清除
         if (tryStartSeq(f)) return
       } else {

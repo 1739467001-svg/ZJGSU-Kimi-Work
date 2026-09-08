@@ -19,6 +19,7 @@ import { useSidebarCollapsed } from './components/ui/useSidebarCollapsed'
 import { loadCampusData, type BakedBuilding, type CampusData } from './lib/campusData'
 import { getBuildingIntro } from './lib/buildingIntro'
 import { requestRooms } from './lib/roomsLoader'
+import { tapBuilding } from './lib/buildingTap'
 import { useCampusStore } from './store/campusStore'
 import { useUIStore } from './store/uiStore'
 import { useSimStore } from './store/simStore'
@@ -347,6 +348,7 @@ export default function App() {
         // dev 调试句柄:e2e/无头截图验证用(仅开发服务器,构建产物不含)
         if (import.meta.env.DEV) {
           ;(window as unknown as Record<string, unknown>).__campusStore = useCampusStore
+          ;(window as unknown as Record<string, unknown>).__campusTap = tapBuilding
         }
 
         // 演示/调试:URL 锁定仿真时刻,如 ?t=21:30(当日,locked 不流逝)
@@ -423,8 +425,8 @@ export default function App() {
       {!(isMobile && (selectedRoomId || selected)) && (
         <div style={isMobile ? (mode === 'immersive' ? S.hintMobile : S.hintMobileWb) : S.hint}>
           {isMobile
-            ? '单指旋转 · 双指缩放 · 点按楼宇聚焦 · 多层建筑可分层展开'
-            : '拖拽旋转 · 滚轮缩放 · 点击楼宇聚焦 · 选中多层建筑可分层展开查看每层房间'}
+            ? '单指旋转 · 双指缩放 · 点按楼宇聚焦 · 双击楼宇快速分层'
+            : '拖拽旋转 · 滚轮缩放 · 点击楼宇聚焦 · 双击楼宇快速分层 · 选中多层建筑可分层展开查看每层房间'}
         </div>
       )}
     </div>

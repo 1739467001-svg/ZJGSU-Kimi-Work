@@ -44,8 +44,9 @@ interface HeroBuildingsProps {
  * 无 building 的双门         → Gates(landmarks: gate_south 飞翔门 / gate_north 凯旋门)
  *
  * 点击支持(M5):每个 hero 组件外层包一个带 onClick 的 group,命中子网格即
- * 选中该楼(与灰盒楼同一 onSelect 语义)。信电楼自带 onClick 且 stopPropagation,
- * 其"点击即进分层"的试点行为不受影响(包裹层处理器不会被触发)。
+ * 选中该楼(与灰盒楼同一 onSelect 语义,双击剖切见 lib/buildingTap)。
+ * 信电楼自带 onClick 且 stopPropagation(内部走同一 tapBuilding 入口),
+ * 包裹层处理器不会被触发。
  * 双门无 building 记录:点击 = 选中伪楼宇 id(gate_south/gate_north,
  * SelectedCard 据此显示简介卡)+ 退出旧剖切;不做相机聚焦(CameraDirector 无 landmark 聚焦)。
  */

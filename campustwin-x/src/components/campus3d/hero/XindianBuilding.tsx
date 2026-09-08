@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import type { HeroBuildingProps } from './HeroBuildings'
-import { useCampusStore } from '../../../store/campusStore'
+import { tapBuilding } from '../../../lib/buildingTap'
 
 export const XINDIAN_ID = 'w563515417'
 
@@ -399,13 +399,10 @@ export default function XindianBuilding({ building, nightFactor }: HeroBuildingP
 
   const plaqueZ = 7.0 // 入口玻璃盒前表面外侧
 
-  // 分层试点:点击信电楼 → 选中 + 镜头聚焦 + 自动进入全楼分层视图(逐层展开,显示各层房间位置)
+  // 点按统一入口(与灰盒/其他 hero 楼同语义):单击=选中+聚焦,双击=叠加剖切开关
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation()
-    const s = useCampusStore.getState()
-    s.selectBuilding(building.id)
-    s.focusCamera({ type: 'building', id: building.id })
-    s.setSlicedBuilding(building.id)
+    tapBuilding(building)
   }
 
   return (

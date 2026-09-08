@@ -25,7 +25,7 @@ interface LabelCandidate {
   position: THREE.Vector3
 }
 
-interface LabelSkin {
+export interface LabelSkin {
   texture: THREE.CanvasTexture
   aspect: number
 }
