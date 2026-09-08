@@ -19,7 +19,7 @@ const MOON = new THREE.Color('#7e97c4') // 夜间冷色微光
 const HEMI_SKY_DAY = new THREE.Color('#b7d4ec')
 const HEMI_SKY_NIGHT = new THREE.Color('#16202e')
 const HEMI_GND_DAY = new THREE.Color('#8f8875')
-const HEMI_GND_NIGHT = new THREE.Color('#0e1218')
+const HEMI_GND_NIGHT = new THREE.Color('#1a2230')
 // Sky 散射参数昼夜端点:白天低浊度 + 高 rayleigh = 蔚蓝通透;夜晚维持原指挥中心基调
 const SKY_TURBIDITY_DAY = 2.0 // 2.6→2.0:浊度更低,正午天空更清澈、减少灰白霾感
 const SKY_TURBIDITY_NIGHT = 6.5
@@ -135,7 +135,7 @@ export default function SkyRig({ starCount = 4000 }: { starCount?: number }) {
       sun.color.copy(tmpColor)
       // 正午峰值 2.8→2.5:给 ACES 留高光余量,白色立面正午不过曝
       const dayIntensity = 0.5 + 2.0 * THREE.MathUtils.clamp(altDeg / 38, 0, 1)
-      sun.intensity = THREE.MathUtils.lerp(dayIntensity, 0.12, nf)
+      sun.intensity = THREE.MathUtils.lerp(dayIntensity, 0.22, nf)
     }
 
     // 半球环境光:天空色/地面色/强度同步入夜(白天提高强度托亮楼体与地面)
@@ -144,7 +144,7 @@ export default function SkyRig({ starCount = 4000 }: { starCount?: number }) {
       hemi.color.copy(HEMI_SKY_DAY).lerp(HEMI_SKY_NIGHT, nf)
       hemi.groundColor.copy(HEMI_GND_DAY).lerp(HEMI_GND_NIGHT, nf)
       // 白天强度 1.05→1.15:太阳减弱后由环境填充补偿,阴影区域保留细节不死黑
-      hemi.intensity = THREE.MathUtils.lerp(1.15, 0.24, nf)
+      hemi.intensity = THREE.MathUtils.lerp(1.15, 0.42, nf)
     }
 
     // Sky:太阳位置逐帧驱动(落到地平线下自动转暗),黄昏提高 rayleigh 强化暖色;

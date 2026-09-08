@@ -47,29 +47,10 @@ const FEATURE_NAME: Record<string, string> = {
 /** 剖切引导气泡"已看过"标记的 localStorage key(带项目前缀) */
 const SLICE_HINT_KEY = 'ctx_slice_hint_seen'
 
-/** 上次访问时间戳的 localStorage key(每日首开锁清晨 7:00 用,带项目前缀) */
-const LAST_VISIT_KEY = 'ctx_last_visit'
-/** 超过该间隔视为"每日首开"(24h) */
-const DAILY_FIRST_OPEN_MS = 24 * 60 * 60 * 1000
-/** 首开场景锁定的清晨时刻(7:00,低角度晨光);之后按自动倍速接着流转 */
+/** 打开页面时场景默认从清晨 7:00 起按自动倍速流转(低角度晨光,避免夜间打开全场漆黑) */
 const FIRST_OPEN_HOUR = 7
 /** 自动模式倍速(与 TimeSwitch 的 AUTO_SPEED 一致) */
 const AUTO_CLOCK_SPEED = 600
-
-/**
- * 判定并登记"每日首开":从未访问或距上次访问 >24h → 返回 true。
- * 每次访问都会刷新时间戳;存储不可用(隐私模式等)时按非首开处理,不打扰现有节奏。
- */
-function checkDailyFirstOpen(nowMs: number): boolean {
-  try {
-    const last = Number(localStorage.getItem(LAST_VISIT_KEY) ?? 0)
-    const first = !Number.isFinite(last) || last <= 0 || nowMs - last > DAILY_FIRST_OPEN_MS
-    localStorage.setItem(LAST_VISIT_KEY, String(nowMs))
-    return first
-  } catch {
-    return false
-  }
-}
 
 /** 双门是 landmark 无 building 记录:点击后合成伪楼宇卡片(简介走 buildingIntro 的 gate_* 条目) */
 const GATE_PSEUDO: Record<string, { height: number }> = {
@@ -387,9 +368,9 @@ export default function App() {
           const d = new Date()
           d.setHours(Number(tm[1]), Number(tm[2]), 0, 0)
           useSimStore.getState().setSimClock({ nowMs: d.getTime(), locked: true })
-        } else if (checkDailyFirstOpen(Date.now())) {
-          // 每日首开(>24h 未访问或首次):场景从当日清晨 7:00 起按自动倍速流转,
-          // 用户不切昼夜模式就看着晨光→正午自然推进(?t= 演示锁时优先,不打扰)
+        } else {
+          // 每次打开默认从当日清晨 7:00 起按自动倍速流转(晨光→正午自然推进),
+          // 避免夜晚打开时全场漆黑;?t= 演示锁时优先,不打扰
           const morning = new Date()
           morning.setHours(FIRST_OPEN_HOUR, 0, 0, 0)
           useSimStore.getState().setSimClock({
