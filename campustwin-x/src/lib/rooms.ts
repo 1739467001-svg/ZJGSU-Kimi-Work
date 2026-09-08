@@ -1,8 +1,9 @@
 import type { DeviceType, Room, RoomType } from './agentTypes'
+import { DEPLOY_BASE } from './deployBase'
 
 /** 加载仿真房间数据(public/data/sim/rooms.json,由 gen-simulation.mjs 生成) */
 export async function loadRooms(): Promise<Room[]> {
-  const res = await fetch('/data/sim/rooms.json')
+  const res = await fetch(`${DEPLOY_BASE}data/sim/rooms.json`)
   if (!res.ok) return []
   const data = await res.json()
   return data.rooms as Room[]

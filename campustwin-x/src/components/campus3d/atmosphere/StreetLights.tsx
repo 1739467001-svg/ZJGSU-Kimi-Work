@@ -1,6 +1,7 @@
 // 路灯:沿实名道路每 40m 一柱,InstancedMesh 半透明光柱 + 顶部程序化光晕 Points。
 // 共 2 个 DrawCall;nightFactor > 0.5 可见,0.5→1 渐入。数据自取 /data/campus/roads.json。
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { DEPLOY_BASE } from '../../../lib/deployBase'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import type { BakedRoad } from '../../../lib/campusData'
@@ -13,7 +14,7 @@ const DEDUP_CELL = 20 // 路口去重栅格(米)
 interface LampPoint { x: number; z: number }
 
 async function loadNamedRoads(): Promise<BakedRoad[]> {
-  const res = await fetch('/data/campus/roads.json')
+  const res = await fetch(`${DEPLOY_BASE}data/campus/roads.json`)
   if (!res.ok) return []
   const data: unknown = await res.json()
   const roads = (data as { roads?: BakedRoad[] }).roads

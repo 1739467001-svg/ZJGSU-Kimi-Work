@@ -1,6 +1,7 @@
 // 仿真Agent:食堂人流 / 图书馆座位 / 校园活动 / 应急疏散演练
 // 数据来源:simStore(canteenCrowd / librarySeats / events),空则提示仿真未启动
 import type { Intent, Room, TaskResult } from '../../lib/agentTypes'
+import { DEPLOY_BASE } from '../../lib/deployBase'
 import { ensureRooms, loadLandmarks, type HandlerContext, type HandlerOutput } from '../dispatchIntent'
 
 const SIM_OFF = '仿真引擎尚未启动,暂时没有实时数据。请先启动人群仿真,再来查询。'
@@ -18,7 +19,7 @@ async function loadCanteenBuildingMap(): Promise<Map<string, string>> {
   if (canteenMapCache) return canteenMapCache
   const map = new Map<string, string>()
   try {
-    const res = await fetch('/data/sim/canteen.json')
+    const res = await fetch(`${DEPLOY_BASE}data/sim/canteen.json`)
     const data: unknown = await res.json()
     const list = (data as { canteens?: { placeId: string; buildingId: string }[] }).canteens ?? []
     for (const c of list) if (c.placeId && c.buildingId) map.set(c.placeId, c.buildingId)

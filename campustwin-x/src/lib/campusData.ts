@@ -1,4 +1,6 @@
 // 数据契约:与 tools/etl/bake-geometry.mjs 的产物一一对应
+import { DEPLOY_BASE } from './deployBase'
+
 export interface BakedBuilding {
   id: string
   name: string | null
@@ -28,7 +30,7 @@ export interface CampusData {
 }
 
 export async function loadCampusData(): Promise<CampusData> {
-  const base = '/data/campus'
+  const base = `${DEPLOY_BASE}data/campus`
   const [b, r, w, g, t, l] = await Promise.all([
     fetch(`${base}/buildings.json`).then((r) => r.json()),
     fetch(`${base}/roads.json`).then((r) => r.json()),

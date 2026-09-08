@@ -2,6 +2,7 @@
 // 用阻尼插值把相机送到目标位,到位后交还 OrbitControls。
 // 所有权通过 CameraRig 的 CameraBus 仲裁;锁定期用户输入由 CameraRig 全局打断。
 import { useEffect, useRef } from 'react'
+import { DEPLOY_BASE } from '../../../lib/deployBase'
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useCampusStore } from '../../../store/campusStore'
@@ -83,7 +84,7 @@ interface RoadShape { id: string; points: [number, number][] }
 let roadsCache: Promise<RoadShape[]> | null = null
 function loadRoads(): Promise<RoadShape[]> {
   if (!roadsCache) {
-    roadsCache = fetch('/data/campus/roads.json')
+    roadsCache = fetch(`${DEPLOY_BASE}data/campus/roads.json`)
       .then((r) => r.json())
       .then((d: { roads?: RoadShape[] }) => d.roads ?? [])
       .catch(() => [])

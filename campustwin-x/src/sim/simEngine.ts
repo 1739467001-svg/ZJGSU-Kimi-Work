@@ -5,6 +5,7 @@
 // 动画规范:仅用 requestAnimationFrame,无 setInterval;返回停止函数。
 
 import type { BakedBuilding } from '../lib/campusData'
+import { DEPLOY_BASE } from '../lib/deployBase'
 import type { CanteenCrowd, EventItem, LibrarySeat, Room } from '../lib/agentTypes'
 import { useCampusStore } from '../store/campusStore'
 import { useSimStore } from '../store/simStore'
@@ -59,14 +60,14 @@ async function loadEngineData(): Promise<EngineData> {
   // rooms 不在启动时拉取(344KB,懒加载);快照每 500ms 实时读 campusStore.rooms,
   // rooms 未加载前楼宇占用率走 baselineOccupancy 兜底曲线,加载后自动切精确口径。
   const [canteenFile, libraryFile, eventsFile] = await Promise.all([
-    fetchJson<CanteenFile>('/data/sim/canteen.json'),
-    fetchJson<LibraryInfo>('/data/sim/library.json'),
-    fetchJson<EventsFile>('/data/sim/events.json'),
+    fetchJson<CanteenFile>(`${DEPLOY_BASE}data/sim/canteen.json`),
+    fetchJson<LibraryInfo>(`${DEPLOY_BASE}data/sim/library.json`),
+    fetchJson<EventsFile>(`${DEPLOY_BASE}data/sim/events.json`),
   ])
   // 楼宇数据优先取已加载的 campusStore,否则自行拉取
   let buildings = useCampusStore.getState().buildings
   if (buildings.length === 0) {
-    const b = await fetchJson<{ buildings: BakedBuilding[] }>('/data/campus/buildings.json')
+    const b = await fetchJson<{ buildings: BakedBuilding[] }>(`${DEPLOY_BASE}data/campus/buildings.json`)
     buildings = b?.buildings ?? []
   }
   return {

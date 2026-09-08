@@ -1,6 +1,7 @@
 // 意图调度器:按 intent 路由到领域 handler,并向 campusStore 渐进 patch AgentStep 时间线
 // 节奏:调度Agent 起手(200-500ms)→ 领域Agent 逐步推进(每步 200-500ms)
 import type { AgentStep, Intent, IntentName, Room, TaskResult } from '../lib/agentTypes'
+import { DEPLOY_BASE } from '../lib/deployBase'
 import type { BakedBuilding, BakedLandmark } from '../lib/campusData'
 import { requestRooms } from '../lib/roomsLoader'
 import type { useCampusStore } from '../store/campusStore'
@@ -54,7 +55,7 @@ let landmarksCache: BakedLandmark[] | null = null
 export async function loadLandmarks(): Promise<BakedLandmark[]> {
   if (landmarksCache) return landmarksCache
   try {
-    const res = await fetch('/data/campus/landmarks.json')
+    const res = await fetch(`${DEPLOY_BASE}data/campus/landmarks.json`)
     const data: unknown = await res.json()
     landmarksCache = (data as { landmarks?: BakedLandmark[] }).landmarks ?? []
   } catch {

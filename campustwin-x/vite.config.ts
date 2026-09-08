@@ -4,6 +4,13 @@ import react from '@vitejs/plugin-react'
 // 说明:沙箱/受限环境中 macOS FSEvents 会让 dev server 在启动前挂死,
 // 轮询 watcher 在任何环境都可用,代价仅是 HMR 延迟百毫秒级。
 export default defineConfig({
+  // 子路径部署(如云服务器 nginx location /campus/)时用 DEPLOY_BASE=/campus/ 构建;
+  // 默认 '/' 行为与原来完全一致
+  base: process.env.DEPLOY_BASE || '/',
+  define: {
+    // 注入运行时数据/资源前缀(见 src/lib/deployBase.ts)
+    __CTX_DEPLOY_BASE__: JSON.stringify(process.env.DEPLOY_BASE || '/'),
+  },
   plugins: [react()],
   server: { watch: { usePolling: true, interval: 300 } },
   build: {
